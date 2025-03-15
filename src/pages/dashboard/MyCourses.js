@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -15,44 +14,88 @@ import {
 
 const MyCourses = () => {
   const { user } = useAuth();
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [createdCourses, setCreatedCourses] = useState([]);
+  const [isLoadingEnrolled, setIsLoadingEnrolled] = useState(true);
+  const [isLoadingCreated, setIsLoadingCreated] = useState(true);
 
-  const { data: enrolledCourses = [], isLoading: isLoadingEnrolled } = useQuery({
-    queryKey: ['enrolledCourses', user?.uid],
-    queryFn: async () => {
-      const enrollmentsRef = collection(db, 'enrollments');
-      const q = query(enrollmentsRef, where('userId', '==', user.uid));
-      const snapshot = await getDocs(q);
-      
-      const courses = await Promise.all(
-        snapshot.docs.map(async (doc) => {
-          const courseDoc = await getDoc(doc(db, 'courses', doc.data().courseId));
-          return {
-            id: courseDoc.id,
-            ...courseDoc.data(),
-            progress: doc.data().progress || {},
-          };
-        })
-      );
-      
-      return courses;
-    },
-    enabled: !!user,
-  });
+  // Real-time subscription for enrolled courses
+  useEffect(() => {
+    if (!user?.uid) return;
 
-  const { data: createdCourses = [], isLoading: isLoadingCreated } = useQuery({
-    queryKey: ['createdCourses', user?.uid],
-    queryFn: async () => {
-      const coursesRef = collection(db, 'courses');
-      const q = query(coursesRef, where('instructorId', '==', user.uid));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    },
-    enabled: !!user,
-  });
+    setIsLoadingEnrolled(true);
+    const enrollmentsRef = collection(db, 'enrollments');
+    const q = query(enrollmentsRef, where('userId', '==', user.uid));
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      try {
+        const courses = await Promise.all(
+          snapshot.docs.map(async (enrollDoc) => {
+            const courseDocRef = doc(db, 'courses', enrollDoc.data().courseId);
+            const courseSnap = await getDoc(courseDocRef);
+            
+            if (!courseSnap.exists()) {
+              console.error('Course not found:', enrollDoc.data().courseId);
+              return null;
+            }
+
+            return {
+              id: courseSnap.id,
+              ...courseSnap.data(),
+              progress: enrollDoc.data().progress || {},
+              lastAccessed: enrollDoc.data().lastAccessed?.toDate() || new Date(),
+            };
+          })
+        );
+
+        // Filter out any null values from courses that weren't found
+        const validCourses = courses.filter(Boolean);
+        setEnrolledCourses(validCourses);
+        setIsLoadingEnrolled(false);
+      } catch (error) {
+        console.error('Error fetching enrolled courses:', error);
+        setIsLoadingEnrolled(false);
+      }
+    }, (error) => {
+      console.error('Enrolled courses subscription error:', error);
+      setIsLoadingEnrolled(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Real-time subscription for created courses (instructors)
+  useEffect(() => {
+    if (!user?.uid || user?.role !== 'instructor') return;
+
+    setIsLoadingCreated(true);
+    const coursesRef = collection(db, 'courses');
+    const q = query(coursesRef, where('instructorId', '==', user.uid));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      try {
+        const courses = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          lastUpdated: doc.data().lastUpdated?.toDate() || new Date(),
+        }));
+        setCreatedCourses(courses);
+        setIsLoadingCreated(false);
+      } catch (error) {
+        console.error('Error fetching created courses:', error);
+        setIsLoadingCreated(false);
+      }
+    }, (error) => {
+      console.error('Created courses subscription error:', error);
+      setIsLoadingCreated(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.role]);
 
   const calculateProgress = (course) => {
-    const completedLessons = Object.values(course.progress).filter(Boolean).length;
-    const totalLessons = course.lessons.length;
+    const completedLessons = Object.values(course.progress || {}).filter(Boolean).length;
+    const totalLessons = course.lessons?.length || 0;
     return Math.round((completedLessons / totalLessons) * 100) || 0;
   };
 

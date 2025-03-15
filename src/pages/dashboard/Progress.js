@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -14,34 +13,58 @@ import {
 
 const Progress = () => {
   const { user } = useAuth();
+  const [enrollments, setEnrollments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: enrollments = [], isLoading } = useQuery({
-    queryKey: ['enrollments', user?.uid],
-    queryFn: async () => {
-      const enrollmentsRef = collection(db, 'enrollments');
-      const q = query(enrollmentsRef, where('userId', '==', user.uid));
-      const snapshot = await getDocs(q);
-      
-      const enrollmentData = await Promise.all(
-        snapshot.docs.map(async (doc) => {
-          const courseDoc = await getDoc(doc(db, 'courses', doc.data().courseId));
-          return {
-            id: doc.id,
-            courseId: doc.data().courseId,
-            progress: doc.data().progress || {},
-            course: { id: courseDoc.id, ...courseDoc.data() },
-          };
-        })
-      );
-      
-      return enrollmentData;
-    },
-    enabled: !!user,
-  });
+  // Real-time subscription for enrollments and progress
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    setIsLoading(true);
+    const enrollmentsRef = collection(db, 'enrollments');
+    const q = query(enrollmentsRef, where('userId', '==', user.uid));
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      try {
+        const enrollmentData = await Promise.all(
+          snapshot.docs.map(async (enrollDoc) => {
+            const courseDocRef = doc(db, 'courses', enrollDoc.data().courseId);
+            const courseSnap = await getDoc(courseDocRef);
+            
+            if (!courseSnap.exists()) {
+              console.error('Course not found:', enrollDoc.data().courseId);
+              return null;
+            }
+
+            return {
+              id: enrollDoc.id,
+              courseId: enrollDoc.data().courseId,
+              progress: enrollDoc.data().progress || {},
+              lastAccessed: enrollDoc.data().lastAccessed?.toDate() || new Date(),
+              course: { id: courseSnap.id, ...courseSnap.data() },
+            };
+          })
+        );
+
+        // Filter out any null values from courses that weren't found
+        const validEnrollments = enrollmentData.filter(Boolean);
+        setEnrollments(validEnrollments);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching enrollments:', error);
+        setIsLoading(false);
+      }
+    }, (error) => {
+      console.error('Enrollments subscription error:', error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   const calculateProgress = (enrollment) => {
     const completedLessons = Object.values(enrollment.progress).filter(Boolean).length;
-    const totalLessons = enrollment.course.lessons.length;
+    const totalLessons = enrollment.course.lessons?.length || 0;
     return {
       percentage: Math.round((completedLessons / totalLessons) * 100) || 0,
       completed: completedLessons,

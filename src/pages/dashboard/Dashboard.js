@@ -314,126 +314,11 @@ const Dashboard = () => {
     };
   }, [user?.uid, user?.role]);
 
-  // Optimize course completion tracking
+  // Update the real-time student progress tracking
   useEffect(() => {
     if (!user?.uid || user?.role !== 'student') return;
 
-    const unsubscribe = onSnapshot(
-      collection(db, 'enrollments'),
-      (snapshot) => {
-        const userEnrollments = snapshot.docs
-          .map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }))
-          .filter(data => data.userId === user.uid);
-
-        let completed = 0;
-        let totalHours = 0;
-
-        // Process enrollments without requiring additional queries
-        userEnrollments.forEach(enrollment => {
-          if (enrollment.progress && enrollment.courseData) {
-            const completedLessons = Object.values(enrollment.progress).filter(Boolean).length;
-            const totalLessons = enrollment.courseData.lessons?.length || 0;
-
-            if (completedLessons === totalLessons && totalLessons > 0) {
-              completed++;
-            }
-
-            totalHours += enrollment.courseData.lessons?.reduce((acc, lesson) => {
-              return acc + (parseInt(lesson.duration) || 0);
-            }, 0) || 0;
-          }
-        });
-
-        setStats(prev => ({
-          ...prev,
-          coursesCompleted: completed,
-          totalHoursLearned: Math.round(totalHours / 60)
-        }));
-      },
-      (error) => console.error('Enrollment subscription error:', error)
-    );
-
-    return () => unsubscribe();
-  }, [user?.uid, user?.role]);
-
-  // Add real-time course tracking for instructors
-  useEffect(() => {
-    if (!user?.uid || user?.role !== 'instructor') return;
-
-    const unsubscribeCourses = onSnapshot(
-      query(collection(db, 'courses'), where('instructorId', '==', user.uid)),
-      async (snapshot) => {
-        try {
-          const courseData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-
-          let totalRevenue = 0;
-          let totalStudents = new Set();
-          let totalRating = 0;
-          let revenueByWeek = {};
-
-          // Get all enrollments for instructor's courses
-          const enrollmentPromises = courseData.map(async course => {
-            const enrollmentSnapshot = await getDocs(
-              query(collection(db, 'enrollments'), where('courseId', '==', course.id))
-            );
-
-            enrollmentSnapshot.docs.forEach(doc => {
-              const data = doc.data();
-              if (data.userId) totalStudents.add(data.userId);
-              if (data.paidAmount) totalRevenue += data.paidAmount;
-              
-              if (data.enrolledAt) {
-                const week = new Date(data.enrolledAt.toDate()).toISOString().slice(0, 10);
-                revenueByWeek[week] = (revenueByWeek[week] || 0) + (data.paidAmount || 0);
-              }
-            });
-
-            return enrollmentSnapshot.size;
-          });
-
-          await Promise.all(enrollmentPromises);
-
-          // Calculate average rating
-          courseData.forEach(course => {
-            totalRating += course.rating || 0;
-          });
-
-          const chartData = Object.entries(revenueByWeek)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([date, revenue]) => ({
-              name: date,
-              revenue: Math.round(revenue)
-            }));
-
-          setStats(prev => ({
-            ...prev,
-            totalRevenue: Math.round(totalRevenue),
-            totalStudents: totalStudents.size,
-            averageRating: courseData.length > 0 ? totalRating / courseData.length : 0,
-            totalCourses: courseData.length
-          }));
-
-          setProgressData(chartData);
-        } catch (error) {
-          console.error('Error processing instructor data:', error);
-        }
-      },
-      error => console.error('Courses subscription error:', error)
-    );
-
-    return () => unsubscribeCourses();
-  }, [user?.uid, user?.role]);
-
-  // Add real-time student progress tracking
-  useEffect(() => {
-    if (!user?.uid || user?.role !== 'student') return;
-
+    // Subscribe to enrollments for real-time updates
     const unsubscribeEnrollments = onSnapshot(
       query(collection(db, 'enrollments'), where('userId', '==', user.uid)),
       async (snapshot) => {
@@ -447,7 +332,7 @@ const Dashboard = () => {
           let totalHours = 0;
           let progressByWeek = {};
 
-          // Process each enrollment
+          // Process enrollments with courseData
           enrollmentData.forEach(enrollment => {
             if (enrollment.courseData?.lessons) {
               const completedLessons = Object.values(enrollment.progress || {}).filter(Boolean).length;
@@ -461,6 +346,7 @@ const Dashboard = () => {
                 return acc + (parseInt(lesson.duration) || 0);
               }, 0);
 
+              // Track weekly progress without requiring index
               if (enrollment.lastUpdated) {
                 const week = new Date(enrollment.lastUpdated.toDate()).toISOString().slice(0, 10);
                 const progress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
@@ -469,11 +355,12 @@ const Dashboard = () => {
             }
           });
 
+          // Format chart data
           const chartData = Object.entries(progressByWeek)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, progress]) => ({
               name: date,
-              progress: Math.round(progress / enrollmentData.length)
+              progress: Math.round(progress / (enrollmentData.length || 1))
             }));
 
           setStats(prev => ({
@@ -491,28 +378,34 @@ const Dashboard = () => {
       error => console.error('Enrollments subscription error:', error)
     );
 
-    return () => unsubscribeEnrollments();
-  }, [user?.uid, user?.role]);
-
-  // Add real-time learning streak tracking
-  useEffect(() => {
-    if (!user?.uid) return;
-
+    // Subscribe to progress updates without requiring index
     const unsubscribeProgress = onSnapshot(
       query(collection(db, 'progress'), where('userId', '==', user.uid)),
       (snapshot) => {
         try {
           const today = new Date();
           const progressByDay = new Map();
+          const last30Days = new Set();
 
+          // Pre-populate last 30 days
+          for (let i = 0; i < 30; i++) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            last30Days.add(date.toISOString().split('T')[0]);
+          }
+
+          // Process progress data
           snapshot.docs.forEach(doc => {
             const data = doc.data();
             if (data.lastUpdated) {
               const date = data.lastUpdated.toDate().toISOString().split('T')[0];
-              progressByDay.set(date, true);
+              if (last30Days.has(date)) {
+                progressByDay.set(date, true);
+              }
             }
           });
 
+          // Calculate streak
           let streak = 0;
           for (let i = 0; i < 30; i++) {
             const date = new Date(today);
@@ -533,12 +426,78 @@ const Dashboard = () => {
         } catch (error) {
           console.error('Error processing streak data:', error);
         }
-      },
-      error => console.error('Progress subscription error:', error)
+      }
     );
 
-    return () => unsubscribeProgress();
-  }, [user?.uid]);
+    return () => {
+      unsubscribeEnrollments();
+      unsubscribeProgress();
+    };
+  }, [user?.uid, user?.role]);
+
+  // Update real-time course tracking for instructors
+  useEffect(() => {
+    if (!user?.uid || user?.role !== 'instructor') return;
+
+    const unsubscribeCourses = onSnapshot(
+      query(collection(db, 'courses'), where('instructorId', '==', user.uid)),
+      async (snapshot) => {
+        try {
+          const courseData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+
+          let totalRevenue = 0;
+          let totalStudents = new Set();
+          let totalRating = 0;
+          let revenueByWeek = {};
+
+          // Get enrollments for each course
+          for (const course of courseData) {
+            const enrollmentSnapshot = await getDocs(
+              query(collection(db, 'enrollments'), where('courseId', '==', course.id))
+            );
+
+            enrollmentSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              if (data.userId) totalStudents.add(data.userId);
+              if (data.paidAmount) totalRevenue += data.paidAmount;
+              
+              if (data.enrolledAt) {
+                const week = new Date(data.enrolledAt.toDate()).toISOString().slice(0, 10);
+                revenueByWeek[week] = (revenueByWeek[week] || 0) + (data.paidAmount || 0);
+              }
+            });
+
+            totalRating += course.rating || 0;
+          }
+
+          // Format chart data
+          const chartData = Object.entries(revenueByWeek)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, revenue]) => ({
+              name: date,
+              revenue: Math.round(revenue)
+            }));
+
+          setStats(prev => ({
+            ...prev,
+            totalRevenue: Math.round(totalRevenue),
+            totalStudents: totalStudents.size,
+            averageRating: courseData.length > 0 ? totalRating / courseData.length : 0,
+            totalCourses: courseData.length
+          }));
+
+          setProgressData(chartData);
+        } catch (error) {
+          console.error('Error processing instructor data:', error);
+        }
+      }
+    );
+
+    return () => unsubscribeCourses();
+  }, [user?.uid, user?.role]);
 
   if (isLoading) {
     return (
