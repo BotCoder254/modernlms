@@ -258,51 +258,273 @@ const CourseDetail = () => {
 
   // Update the progress tracking useEffect
   useEffect(() => {
-    if (selectedLesson?.id && isWatching && user?.uid && courseId) {
-      const interval = setInterval(async () => {
-        if (watchTime !== lastSavedTime) {
-          try {
-            const progressRef = collection(db, 'progress');
-            const q = query(
-              progressRef,
-              where('userId', '==', user.uid),
-              where('lessonId', '==', selectedLesson.id),
-              where('courseId', '==', courseId)
-            );
-            const snapshot = await getDocs(q);
-            
-            const completed = watchTime >= (selectedLesson.duration || 0) * 60;
-            
-            if (snapshot.empty) {
-              await addDoc(progressRef, {
-                userId: user.uid,
-                courseId,
-                lessonId: selectedLesson.id,
-                watchTime,
-                lastUpdated: serverTimestamp(),
-                completed
-              });
-            } else {
-              await updateDoc(doc(db, 'progress', snapshot.docs[0].id), {
-                watchTime,
-                lastUpdated: serverTimestamp(),
-                completed
-              });
-            }
+    if (!selectedLesson?.id || !isWatching || !user?.uid || !courseId) return;
 
-            // Track lesson progress
-            await trackLessonProgress(user.uid, courseId, selectedLesson.id, watchTime, completed);
-            
-            setLastSavedTime(watchTime);
-          } catch (error) {
-            console.error('Error updating progress:', error);
+    const saveProgress = async () => {
+      if (watchTime === lastSavedTime) return;
+
+      try {
+        const completed = watchTime >= (selectedLesson.duration || 0) * 60;
+        
+        // Add progress data with timestamp
+        await addDoc(collection(db, 'progress'), {
+          userId: user.uid,
+          courseId,
+          lessonId: selectedLesson.id,
+          watchTime,
+          completed,
+          lastUpdated: serverTimestamp()
+        });
+
+        // Track lesson progress
+        await trackLessonProgress(user.uid, courseId, selectedLesson.id, watchTime, completed);
+        
+        setLastSavedTime(watchTime);
+
+        // Update enrollment progress
+        if (completed) {
+          const enrollmentRef = collection(db, 'enrollments');
+          const enrollmentSnapshot = await getDocs(
+            query(enrollmentRef, where('userId', '==', user.uid), where('courseId', '==', courseId))
+          );
+
+          if (!enrollmentSnapshot.empty) {
+            const enrollmentDoc = enrollmentSnapshot.docs[0];
+            await updateDoc(doc(db, 'enrollments', enrollmentDoc.id), {
+              [`progress.${selectedLesson.id}`]: true,
+              lastUpdated: serverTimestamp()
+            });
           }
         }
-      }, 5000);
+      } catch (error) {
+        console.error('Error saving progress:', error);
+      }
+    };
 
-      return () => clearInterval(interval);
+    const interval = setInterval(saveProgress, 5000);
+    return () => clearInterval(interval);
+  }, [watchTime, lastSavedTime, selectedLesson, isWatching, user?.uid, courseId]);
+
+  // Update the handleAddComment function
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !selectedLesson || !user?.uid) {
+      toast.error('Please write a comment first');
+      return;
     }
-  }, [watchTime, lastSavedTime, selectedLesson?.id, isWatching, user?.uid, courseId]);
+    
+    try {
+      const timestamp = serverTimestamp();
+      const commentData = {
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        courseId,
+        lessonId: selectedLesson.id,
+        comment: newComment.trim(),
+        timestamp: currentTime,
+        createdAt: timestamp,
+        userRole: user.role,
+        userAvatar: user.photoURL || null
+      };
+
+      const commentRef = await addDoc(collection(db, 'comments'), commentData);
+
+      // Update local state optimistically
+      setComments(prev => [{
+        id: commentRef.id,
+        ...commentData,
+        createdAt: new Date()
+      }, ...prev]);
+
+      // Track comment activity
+      await trackUserEngagement(user.uid, courseId, selectedLesson.id, 'add_comment', {
+        commentId: commentRef.id,
+        timestamp: new Date()
+      });
+
+      // Update course engagement
+      await updateDoc(doc(db, 'courses', courseId), {
+        commentCount: increment(1),
+        lastActivity: timestamp
+      });
+      
+      setNewComment('');
+      toast.success('Comment added successfully!');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment. Please try again.');
+    }
+  };
+
+  // Update the real-time comments subscription
+  useEffect(() => {
+    if (!selectedLesson?.id || !courseId) return;
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'comments'),
+      (snapshot) => {
+        try {
+          const commentData = snapshot.docs
+            .map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate() || new Date()
+            }))
+            .filter(comment => 
+              comment.lessonId === selectedLesson.id && 
+              comment.courseId === courseId
+            )
+            .sort((a, b) => b.createdAt - a.createdAt);
+
+          setComments(commentData);
+        } catch (error) {
+          console.error('Error processing comments:', error);
+        }
+      },
+      (error) => {
+        console.error('Comments subscription error:', error);
+        toast.error('Failed to load comments');
+      }
+    );
+
+    return () => unsubscribe();
+  }, [selectedLesson?.id, courseId]);
+
+  // Add real-time course data subscription
+  useEffect(() => {
+    if (!courseId) return;
+
+    const unsubscribe = onSnapshot(
+      doc(db, 'courses', courseId),
+      (doc) => {
+        if (doc.exists()) {
+          const courseData = { id: doc.id, ...doc.data() };
+          queryClient.setQueryData(['course', courseId], courseData);
+        }
+      },
+      (error) => {
+        console.error('Course subscription error:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [courseId, queryClient]);
+
+  // Add real-time progress tracking with error handling
+  useEffect(() => {
+    if (!selectedLesson?.id || !isWatching || !user?.uid || !courseId) return;
+
+    let progressInterval;
+    const startProgressTracking = () => {
+      progressInterval = setInterval(async () => {
+        if (watchTime === lastSavedTime) return;
+
+        try {
+          const timestamp = serverTimestamp();
+          const completed = watchTime >= (selectedLesson.duration || 0) * 60;
+          
+          // Add progress data
+          const progressRef = await addDoc(collection(db, 'progress'), {
+            userId: user.uid,
+            courseId,
+            lessonId: selectedLesson.id,
+            watchTime,
+            completed,
+            lastUpdated: timestamp,
+            userRole: user.role
+          });
+
+          // Track progress
+          await trackLessonProgress(user.uid, courseId, selectedLesson.id, watchTime, completed);
+          
+          setLastSavedTime(watchTime);
+
+          // Update enrollment if completed
+          if (completed) {
+            const enrollmentQuery = query(
+              collection(db, 'enrollments'),
+              where('userId', '==', user.uid),
+              where('courseId', '==', courseId)
+            );
+
+            const enrollmentSnapshot = await getDocs(enrollmentQuery);
+            if (!enrollmentSnapshot.empty) {
+              const enrollmentDoc = enrollmentSnapshot.docs[0];
+              await updateDoc(doc(db, 'enrollments', enrollmentDoc.id), {
+                [`progress.${selectedLesson.id}`]: true,
+                lastUpdated: timestamp,
+                completedLessons: increment(1)
+              });
+
+              // Update course completion stats
+              await updateDoc(doc(db, 'courses', courseId), {
+                totalCompletions: increment(1),
+                lastActivity: timestamp
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error saving progress:', error);
+          toast.error('Failed to save progress');
+        }
+      }, 5000);
+    };
+
+    startProgressTracking();
+    return () => {
+      if (progressInterval) clearInterval(progressInterval);
+    };
+  }, [watchTime, lastSavedTime, selectedLesson, isWatching, user?.uid, courseId]);
+
+  // Add real-time bookmarks subscription
+  useEffect(() => {
+    if (!user?.uid || !courseId) return;
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'bookmarks'),
+      (snapshot) => {
+        const bookmarkData = {};
+        snapshot.docs
+          .filter(doc => {
+            const data = doc.data();
+            return data.userId === user.uid && data.courseId === courseId;
+          })
+          .forEach(doc => {
+            const data = doc.data();
+            bookmarkData[data.lessonId] = data.timestamp;
+          });
+        setBookmarks(bookmarkData);
+      },
+      (error) => console.error('Bookmarks subscription error:', error)
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, courseId]);
+
+  // Add real-time enrollment check
+  useEffect(() => {
+    if (!user?.uid || !courseId) return;
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'enrollments'),
+      (snapshot) => {
+        const userEnrollments = snapshot.docs
+          .filter(doc => {
+            const data = doc.data();
+            return data.userId === user.uid && data.courseId === courseId;
+          });
+
+        setIsEnrolled(!userEnrollments.empty);
+
+        if (!userEnrollments.empty) {
+          const enrollmentData = userEnrollments[0].data();
+          setProgress(enrollmentData.progress || {});
+        }
+      },
+      (error) => console.error('Enrollment subscription error:', error)
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, courseId]);
 
   // Add new function for handling video progress
   const handleProgress = ({ playedSeconds }) => {
@@ -372,41 +594,6 @@ const CourseDetail = () => {
       }
     } catch (error) {
       toast.error('Failed to update bookmark');
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!newComment.trim() || !selectedLesson) return;
-    
-    try {
-      const commentRef = await addDoc(collection(db, 'comments'), {
-        userId: user.uid,
-        userName: user.displayName,
-        courseId,
-        lessonId: selectedLesson.id,
-        comment: newComment,
-        timestamp: currentTime,
-        createdAt: serverTimestamp()
-      });
-      
-      setComments(prev => [...prev, {
-        id: commentRef.id,
-        userId: user.uid,
-        userName: user.displayName,
-        comment: newComment,
-        timestamp: currentTime,
-        createdAt: new Date()
-      }]);
-
-      // Track comment addition
-      await trackUserEngagement(user.uid, courseId, selectedLesson.id, 'add_comment', {
-        commentId: commentRef.id
-      });
-      
-      setNewComment('');
-      toast.success('Comment added!');
-    } catch (error) {
-      toast.error('Failed to add comment');
     }
   };
 
