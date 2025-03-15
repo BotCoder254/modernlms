@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -9,12 +9,14 @@ import {
   TrophyIcon,
   ChartBarIcon,
   BookOpenIcon,
+  StarIcon,
 } from '@heroicons/react/24/outline';
 
 const Progress = () => {
   const { user } = useAuth();
   const [enrollments, setEnrollments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [courseReviews, setCourseReviews] = useState({});
 
   // Real-time subscription for enrollments and progress
   useEffect(() => {
@@ -36,12 +38,36 @@ const Progress = () => {
               return null;
             }
 
+            // Fetch reviews for this course
+            const reviewsRef = collection(db, 'reviews');
+            const reviewsQuery = query(
+              reviewsRef,
+              where('courseId', '==', enrollDoc.data().courseId),
+              orderBy('createdAt', 'desc')
+            );
+            const reviewsSnap = await getDocs(reviewsQuery);
+            const reviews = reviewsSnap.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate() || new Date()
+            }));
+
+            // Update reviews in state
+            setCourseReviews(prev => ({
+              ...prev,
+              [enrollDoc.data().courseId]: reviews
+            }));
+
             return {
               id: enrollDoc.id,
               courseId: enrollDoc.data().courseId,
               progress: enrollDoc.data().progress || {},
               lastAccessed: enrollDoc.data().lastAccessed?.toDate() || new Date(),
-              course: { id: courseSnap.id, ...courseSnap.data() },
+              course: { 
+                id: courseSnap.id, 
+                ...courseSnap.data(),
+                reviews: reviews 
+              },
             };
           })
         );
@@ -70,6 +96,13 @@ const Progress = () => {
       completed: completedLessons,
       total: totalLessons,
     };
+  };
+
+  const getAverageRating = (courseId) => {
+    const reviews = courseReviews[courseId] || [];
+    if (reviews.length === 0) return 0;
+    const totalRating = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+    return (totalRating / reviews.length).toFixed(1);
   };
 
   const overallProgress = enrollments.reduce(
@@ -173,6 +206,10 @@ const Progress = () => {
                       <span className="absolute right-0 top-4 text-sm font-medium text-gray-600">
                         {progress.percentage}%
                       </span>
+                    </div>
+                    <div className="mt-2 flex items-center text-sm text-gray-600">
+                      <StarIcon className="h-4 w-4 text-yellow-400 mr-1" />
+                      {getAverageRating(enrollment.courseId)} ({enrollment.course.reviews?.length || 0} reviews)
                     </div>
                   </div>
                 );

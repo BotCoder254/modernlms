@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -18,6 +18,7 @@ const MyCourses = () => {
   const [createdCourses, setCreatedCourses] = useState([]);
   const [isLoadingEnrolled, setIsLoadingEnrolled] = useState(true);
   const [isLoadingCreated, setIsLoadingCreated] = useState(true);
+  const [courseReviews, setCourseReviews] = useState({});
 
   // Real-time subscription for enrolled courses
   useEffect(() => {
@@ -39,11 +40,32 @@ const MyCourses = () => {
               return null;
             }
 
+            // Fetch reviews for this course
+            const reviewsRef = collection(db, 'reviews');
+            const reviewsQuery = query(
+              reviewsRef,
+              where('courseId', '==', enrollDoc.data().courseId),
+              orderBy('createdAt', 'desc')
+            );
+            const reviewsSnap = await getDocs(reviewsQuery);
+            const reviews = reviewsSnap.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate() || new Date()
+            }));
+
+            // Update reviews in state
+            setCourseReviews(prev => ({
+              ...prev,
+              [enrollDoc.data().courseId]: reviews
+            }));
+
             return {
               id: courseSnap.id,
               ...courseSnap.data(),
               progress: enrollDoc.data().progress || {},
               lastAccessed: enrollDoc.data().lastAccessed?.toDate() || new Date(),
+              reviews: reviews
             };
           })
         );
@@ -72,13 +94,37 @@ const MyCourses = () => {
     const coursesRef = collection(db, 'courses');
     const q = query(coursesRef, where('instructorId', '==', user.uid));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
-        const courses = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          lastUpdated: doc.data().lastUpdated?.toDate() || new Date(),
+        const courses = await Promise.all(snapshot.docs.map(async (courseDoc) => {
+          // Fetch reviews for this course
+          const reviewsRef = collection(db, 'reviews');
+          const reviewsQuery = query(
+            reviewsRef,
+            where('courseId', '==', courseDoc.id),
+            orderBy('createdAt', 'desc')
+          );
+          const reviewsSnap = await getDocs(reviewsQuery);
+          const reviews = reviewsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date()
+          }));
+
+          // Update reviews in state
+          setCourseReviews(prev => ({
+            ...prev,
+            [courseDoc.id]: reviews
+          }));
+
+          return {
+            id: courseDoc.id,
+            ...courseDoc.data(),
+            lastUpdated: courseDoc.data().lastUpdated?.toDate() || new Date(),
+            reviews: reviews
+          };
         }));
+
         setCreatedCourses(courses);
         setIsLoadingCreated(false);
       } catch (error) {
@@ -97,6 +143,13 @@ const MyCourses = () => {
     const completedLessons = Object.values(course.progress || {}).filter(Boolean).length;
     const totalLessons = course.lessons?.length || 0;
     return Math.round((completedLessons / totalLessons) * 100) || 0;
+  };
+
+  const getAverageRating = (courseId) => {
+    const reviews = courseReviews[courseId] || [];
+    if (reviews.length === 0) return 0;
+    const totalRating = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+    return (totalRating / reviews.length).toFixed(1);
   };
 
   return (
@@ -222,7 +275,7 @@ const MyCourses = () => {
                         </div>
                         <div className="flex items-center">
                           <StarIcon className="h-5 w-5 mr-1 text-yellow-400" />
-                          {(course.rating / course.reviewCount || 0).toFixed(1)}
+                          {getAverageRating(course.id)}
                         </div>
                       </div>
                     </div>
