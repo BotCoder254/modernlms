@@ -38,6 +38,11 @@ const CreateCourse = () => {
     price: '',
     discountPrice: '',
     thumbnail: null,
+    hasDiscount: false,
+    discountEndDate: '',
+    previewEnabled: false,
+    requirements: [],
+    outcomes: [],
   });
 
   const [lessons, setLessons] = useState([{
@@ -159,14 +164,16 @@ const CreateCourse = () => {
         })
       );
 
-      // Create course document
+      // Create course document with additional fields
       const courseRef = await addDoc(collection(db, 'courses'), {
         title: courseData.title,
         description: courseData.description,
         category: courseData.category,
         level: courseData.level,
         price: Number(courseData.price),
-        discountPrice: courseData.discountPrice ? Number(courseData.discountPrice) : null,
+        hasDiscount: courseData.hasDiscount,
+        discountPrice: courseData.hasDiscount ? Number(courseData.discountPrice) : null,
+        discountEndDate: courseData.hasDiscount ? new Date(courseData.discountEndDate) : null,
         thumbnail: thumbnailUrl,
         lessons: lessonsWithUrls,
         instructorId: user.uid,
@@ -176,6 +183,8 @@ const CreateCourse = () => {
         rating: 0,
         reviewCount: 0,
         enrollmentCount: 0,
+        requirements: courseData.requirements,
+        outcomes: courseData.outcomes,
       });
 
       toast.success('Course created successfully!');
@@ -227,7 +236,7 @@ const CreateCourse = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                Price ($)
+                Regular Price ($)
               </label>
               <input
                 type="number"
@@ -243,24 +252,42 @@ const CreateCourse = () => {
             </div>
 
             <div>
-              <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-2">
-                Course Level
-              </label>
-              <select
-                id="level"
-                name="level"
-                value={courseData.level}
-                onChange={(e) => setCourseData((prev) => ({ ...prev, level: e.target.value }))}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select Level</option>
-                {levels.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  id="hasDiscount"
+                  checked={courseData.hasDiscount}
+                  onChange={(e) => setCourseData({ ...courseData, hasDiscount: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="hasDiscount" className="ml-2 block text-sm font-medium text-gray-700">
+                  Enable Discount
+                </label>
+              </div>
+              {courseData.hasDiscount && (
+                <>
+                  <input
+                    type="number"
+                    id="discountPrice"
+                    name="discountPrice"
+                    value={courseData.discountPrice}
+                    onChange={(e) => setCourseData({ ...courseData, discountPrice: e.target.value })}
+                    min="0"
+                    step="0.01"
+                    placeholder="Discount Price ($)"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 mb-2"
+                  />
+                  <input
+                    type="date"
+                    id="discountEndDate"
+                    name="discountEndDate"
+                    value={courseData.discountEndDate}
+                    onChange={(e) => setCourseData({ ...courseData, discountEndDate: e.target.value })}
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Discount End Date"
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -338,6 +365,40 @@ const CreateCourse = () => {
                         className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                         required
                       />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`preview-${index}`}
+                        checked={lesson.previewEnabled}
+                        onChange={(e) => handleLessonChange(index, 'previewEnabled', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={`preview-${index}`} className="ml-2 block text-sm text-gray-700">
+                        Enable preview for this lesson
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Study Materials
+                      </label>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) => handleStudyMaterialUpload(index, e.target.files)}
+                        className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        accept=".pdf,.doc,.docx,.txt"
+                      />
+                      {lesson.studyMaterials && lesson.studyMaterials.length > 0 && (
+                        <ul className="mt-2 space-y-2">
+                          {lesson.studyMaterials.map((material, mIndex) => (
+                            <li key={mIndex} className="flex items-center text-sm text-gray-600">
+                              <DocumentIcon className="h-5 w-5 mr-2" />
+                              {material.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                     <button
                       type="button"

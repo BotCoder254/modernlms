@@ -120,7 +120,9 @@ const CourseDetail = () => {
   // Fetch comments
   useEffect(() => {
     const fetchComments = async () => {
-      if (selectedLesson?.id && courseId) {
+      if (!selectedLesson?.id || !courseId || !user?.uid) return;
+
+      try {
         const commentsRef = collection(db, 'comments');
         const q = query(
           commentsRef,
@@ -133,12 +135,14 @@ const CourseDetail = () => {
           ...doc.data()
         }));
         setComments(commentData);
-      } else {
+      } catch (error) {
+        console.error('Error fetching comments:', error);
         setComments([]);
       }
     };
+
     fetchComments();
-  }, [selectedLesson?.id, courseId]);
+  }, [selectedLesson?.id, courseId, user?.uid]);
 
   // Enroll in course mutation
   const enrollMutation = useMutation({
@@ -251,40 +255,47 @@ const CourseDetail = () => {
     },
   });
 
-  // Add new useEffect for tracking watch time
+  // Update the progress tracking useEffect
   useEffect(() => {
-    if (selectedLesson && isWatching) {
+    if (selectedLesson?.id && isWatching && user?.uid && courseId) {
       const interval = setInterval(async () => {
         if (watchTime !== lastSavedTime) {
-          const progressRef = collection(db, 'progress');
-          const q = query(
-            progressRef,
-            where('userId', '==', user.uid),
-            where('lessonId', '==', selectedLesson.id)
-          );
-          const snapshot = await getDocs(q);
-          
-          if (snapshot.empty) {
-            await addDoc(progressRef, {
-              userId: user.uid,
-              courseId,
-              lessonId: selectedLesson.id,
-              watchTime,
-              lastUpdated: serverTimestamp(),
-            });
-          } else {
-            await updateDoc(doc(db, 'progress', snapshot.docs[0].id), {
-              watchTime,
-              lastUpdated: serverTimestamp(),
-            });
+          try {
+            const progressRef = collection(db, 'progress');
+            const q = query(
+              progressRef,
+              where('userId', '==', user.uid),
+              where('lessonId', '==', selectedLesson.id),
+              where('courseId', '==', courseId)
+            );
+            const snapshot = await getDocs(q);
+            
+            if (snapshot.empty) {
+              await addDoc(progressRef, {
+                userId: user.uid,
+                courseId,
+                lessonId: selectedLesson.id,
+                watchTime,
+                lastUpdated: serverTimestamp(),
+                completed: watchTime >= (selectedLesson.duration || 0) * 60
+              });
+            } else {
+              await updateDoc(doc(db, 'progress', snapshot.docs[0].id), {
+                watchTime,
+                lastUpdated: serverTimestamp(),
+                completed: watchTime >= (selectedLesson.duration || 0) * 60
+              });
+            }
+            setLastSavedTime(watchTime);
+          } catch (error) {
+            console.error('Error updating progress:', error);
           }
-          setLastSavedTime(watchTime);
         }
-      }, 5000); // Save every 5 seconds
+      }, 5000);
 
       return () => clearInterval(interval);
     }
-  }, [watchTime, lastSavedTime, selectedLesson, isWatching]);
+  }, [watchTime, lastSavedTime, selectedLesson?.id, isWatching, user?.uid, courseId]);
 
   // Add new function for handling video progress
   const handleProgress = ({ playedSeconds }) => {
@@ -386,6 +397,24 @@ const CourseDetail = () => {
     enrollMutation.mutate();
   };
 
+  // Add preview functionality
+  const canAccessLesson = (lesson) => {
+    if (!lesson) return false;
+    if (isEnrolled) return true;
+    return lesson.previewEnabled;
+  };
+
+  // Update the lesson selection handler
+  const handleLessonSelect = (lesson) => {
+    if (!canAccessLesson(lesson)) {
+      toast.error('Please enroll in the course to access this lesson');
+      return;
+    }
+    setSelectedLesson(lesson);
+    setWatchTime(0);
+    setLastSavedTime(0);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -459,7 +488,7 @@ const CourseDetail = () => {
           {/* Course Content */}
           <div className="lg:col-span-2">
             {/* Video Player */}
-            {selectedLesson && isEnrolled && (
+            {selectedLesson && (canAccessLesson(selectedLesson) ? (
               <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
                 <div className="aspect-video relative">
                   <ReactPlayer
@@ -473,7 +502,9 @@ const CourseDetail = () => {
                     onPause={() => setIsWatching(false)}
                     onEnded={() => {
                       setIsWatching(false);
-                      completeLessonMutation.mutate(selectedLesson.id);
+                      if (isEnrolled) {
+                        completeLessonMutation.mutate(selectedLesson.id);
+                      }
                     }}
                     progressInterval={1000}
                     config={{
@@ -538,7 +569,7 @@ const CourseDetail = () => {
                       {course.lessons.map((lesson, index) => (
                         <button
                           key={lesson.id}
-                          onClick={() => setSelectedLesson(lesson)}
+                          onClick={() => handleLessonSelect(lesson)}
                           className={`w-full text-left px-4 py-2 rounded-lg flex items-center justify-between ${
                             selectedLesson.id === lesson.id
                               ? 'bg-blue-50 text-blue-700'
@@ -603,7 +634,25 @@ const CourseDetail = () => {
                   </div>
                 </div>
               </div>
-            )}
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <div className="text-center">
+                  <LockClosedIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    This lesson is locked
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Enroll in this course to access all lessons and materials.
+                  </p>
+                  <button
+                    onClick={handleEnrollClick}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Enroll Now
+                  </button>
+                </div>
+              </div>
+            ))}
 
             {/* Course Content */}
             <div className="bg-white rounded-lg shadow-sm">
