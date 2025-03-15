@@ -4,6 +4,9 @@ import { motion } from 'framer-motion';
 import { db } from '../config/firebase';
 import { collection, query, limit, getDocs } from 'firebase/firestore';
 
+// Import hero image
+// import heroImage from '../assets/hero-bg.jpg';  // You'll need to add this image to your assets folder
+
 const Landing = () => {
   const [featuredCourses, setFeaturedCourses] = useState([]);
 
@@ -29,19 +32,19 @@ const Landing = () => {
     {
       name: 'Sarah Johnson',
       role: 'Student',
-      image: 'https://source.unsplash.com/random/100x100/?portrait,woman',
+      image: 'https://images.pexels.com/photos/3777943/pexels-photo-3777943.jpeg?auto=compress&cs=tinysrgb&w=100',
       content: 'The courses here have transformed my career path. The instructors are amazing and the content is top-notch.'
     },
     {
       name: 'Michael Chen',
       role: 'Instructor',
-      image: 'https://source.unsplash.com/random/100x100/?portrait,man',
+      image: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=100',
       content: 'Teaching on this platform has been incredibly rewarding. The tools and support provided make it easy to create engaging content.'
     },
     {
       name: 'Emily Davis',
       role: 'Student',
-      image: 'https://source.unsplash.com/random/100x100/?portrait,girl',
+      image: 'https://images.pexels.com/photos/3776023/pexels-photo-3776023.jpeg?auto=compress&cs=tinysrgb&w=100',
       content: 'I love how interactive and engaging the learning experience is. The community support is fantastic!'
     }
   ];
@@ -75,8 +78,8 @@ const Landing = () => {
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="https://source.unsplash.com/random/?education,technology"
-            alt="Hero Background"
+            src="https://images.pexels.com/photos/4050315/pexels-photo-4050315.jpeg?auto=compress&cs=tinysrgb&w=1920"
+            alt="Modern Learning Platform"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 to-purple-900/90" />
@@ -146,7 +149,7 @@ const Landing = () => {
                 className="bg-white rounded-lg shadow-lg overflow-hidden"
               >
                 <img
-                  src={course.thumbnail || `https://source.unsplash.com/random/400x300/?${course.title}`}
+                  src={course.thumbnail || `https://images.pexels.com/photos/5905710/pexels-photo-5905710.jpeg?auto=compress&cs=tinysrgb&w=600`}
                   alt={course.title}
                   className="w-full h-48 object-cover"
                 />

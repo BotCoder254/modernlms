@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: modernlms
+    env: docker
+    buildCommand: docker build -t modernlms .
+    startCommand: docker run -p 3000:3000 modernlms
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_FIREBASE_API_KEY
+        sync: false
+      - key: REACT_APP_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: REACT_APP_FIREBASE_PROJECT_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_APP_ID
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true 
