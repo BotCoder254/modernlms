@@ -38,6 +38,7 @@ import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolid } from '@heroi
 import { Elements } from '@stripe/react-stripe-js';
 import stripePromise from '../../utils/stripe';
 import PaymentForm from '../../components/PaymentForm';
+import { trackUserEngagement, trackLessonProgress, trackCourseEngagement } from '../../utils/analytics';
 
 const CourseDetail = () => {
   const { courseId } = useParams();
@@ -270,6 +271,8 @@ const CourseDetail = () => {
             );
             const snapshot = await getDocs(q);
             
+            const completed = watchTime >= (selectedLesson.duration || 0) * 60;
+            
             if (snapshot.empty) {
               await addDoc(progressRef, {
                 userId: user.uid,
@@ -277,15 +280,19 @@ const CourseDetail = () => {
                 lessonId: selectedLesson.id,
                 watchTime,
                 lastUpdated: serverTimestamp(),
-                completed: watchTime >= (selectedLesson.duration || 0) * 60
+                completed
               });
             } else {
               await updateDoc(doc(db, 'progress', snapshot.docs[0].id), {
                 watchTime,
                 lastUpdated: serverTimestamp(),
-                completed: watchTime >= (selectedLesson.duration || 0) * 60
+                completed
               });
             }
+
+            // Track lesson progress
+            await trackLessonProgress(user.uid, courseId, selectedLesson.id, watchTime, completed);
+            
             setLastSavedTime(watchTime);
           } catch (error) {
             console.error('Error updating progress:', error);
@@ -320,36 +327,51 @@ const CourseDetail = () => {
   const handleBookmark = async () => {
     if (!selectedLesson) return;
     
-    const bookmarkRef = collection(db, 'bookmarks');
-    const q = query(
-      bookmarkRef,
-      where('userId', '==', user.uid),
-      where('courseId', '==', courseId),
-      where('lessonId', '==', selectedLesson.id)
-    );
-    
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-      await addDoc(bookmarkRef, {
-        userId: user.uid,
-        courseId,
-        lessonId: selectedLesson.id,
-        timestamp: currentTime,
-        createdAt: serverTimestamp()
-      });
-      setBookmarks(prev => ({
-        ...prev,
-        [selectedLesson.id]: currentTime
-      }));
-      toast.success('Bookmark added!');
-    } else {
-      const docRef = doc(db, 'bookmarks', snapshot.docs[0].id);
-      await deleteDoc(docRef);
-      const newBookmarks = { ...bookmarks };
-      delete newBookmarks[selectedLesson.id];
-      setBookmarks(newBookmarks);
-      toast.success('Bookmark removed!');
+    try {
+      const bookmarkRef = collection(db, 'bookmarks');
+      const q = query(
+        bookmarkRef,
+        where('userId', '==', user.uid),
+        where('courseId', '==', courseId),
+        where('lessonId', '==', selectedLesson.id)
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        const bookmarkDoc = await addDoc(bookmarkRef, {
+          userId: user.uid,
+          courseId,
+          lessonId: selectedLesson.id,
+          timestamp: currentTime,
+          createdAt: serverTimestamp()
+        });
+
+        setBookmarks(prev => ({
+          ...prev,
+          [selectedLesson.id]: currentTime
+        }));
+
+        // Track bookmark addition
+        await trackUserEngagement(user.uid, courseId, selectedLesson.id, 'add_bookmark', {
+          bookmarkId: bookmarkDoc.id
+        });
+
+        toast.success('Bookmark added!');
+      } else {
+        const docRef = doc(db, 'bookmarks', snapshot.docs[0].id);
+        await deleteDoc(docRef);
+        const newBookmarks = { ...bookmarks };
+        delete newBookmarks[selectedLesson.id];
+        setBookmarks(newBookmarks);
+
+        // Track bookmark removal
+        await trackUserEngagement(user.uid, courseId, selectedLesson.id, 'remove_bookmark');
+
+        toast.success('Bookmark removed!');
+      }
+    } catch (error) {
+      toast.error('Failed to update bookmark');
     }
   };
 
@@ -375,6 +397,11 @@ const CourseDetail = () => {
         timestamp: currentTime,
         createdAt: new Date()
       }]);
+
+      // Track comment addition
+      await trackUserEngagement(user.uid, courseId, selectedLesson.id, 'add_comment', {
+        commentId: commentRef.id
+      });
       
       setNewComment('');
       toast.success('Comment added!');
@@ -405,7 +432,7 @@ const CourseDetail = () => {
   };
 
   // Update the lesson selection handler
-  const handleLessonSelect = (lesson) => {
+  const handleLessonSelect = async (lesson) => {
     if (!canAccessLesson(lesson)) {
       toast.error('Please enroll in the course to access this lesson');
       return;
@@ -413,7 +440,25 @@ const CourseDetail = () => {
     setSelectedLesson(lesson);
     setWatchTime(0);
     setLastSavedTime(0);
+
+    // Track lesson selection
+    if (user?.uid) {
+      await trackUserEngagement(user.uid, courseId, lesson.id, 'select_lesson');
+    }
   };
+
+  // Add useEffect for course view tracking
+  useEffect(() => {
+    const trackCourseView = async () => {
+      if (user?.uid && courseId) {
+        await trackCourseEngagement(courseId, 'view', {
+          userId: user.uid,
+          timestamp: new Date()
+        });
+      }
+    };
+    trackCourseView();
+  }, [user?.uid, courseId]);
 
   if (isLoading) {
     return (

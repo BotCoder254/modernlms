@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -210,6 +210,151 @@ const Dashboard = () => {
       setProgressData(analyticsData.chartData);
     }
   }, [analyticsData]);
+
+  // Add real-time subscription for analytics
+  useEffect(() => {
+    if (!user?.uid || !user?.role) return;
+
+    const unsubscribeProgress = onSnapshot(
+      query(
+        collection(db, 'progress'),
+        where('userId', '==', user.uid)
+      ),
+      (snapshot) => {
+        const progressData = {};
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          progressData[data.lessonId] = data.completed;
+        });
+        setProgressData(progressData);
+      }
+    );
+
+    const unsubscribeEngagement = onSnapshot(
+      query(
+        collection(db, 'user_engagement'),
+        where('userId', '==', user.uid),
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      ),
+      (snapshot) => {
+        const engagementData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        // Process engagement data for charts
+        const activityByDate = {};
+        engagementData.forEach(activity => {
+          const date = new Date(activity.timestamp.toDate()).toISOString().split('T')[0];
+          activityByDate[date] = (activityByDate[date] || 0) + 1;
+        });
+
+        const chartData = Object.entries(activityByDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, count]) => ({
+            name: date,
+            activity: count
+          }));
+
+        setProgressData(chartData);
+      }
+    );
+
+    // For instructors, add course engagement tracking
+    if (user.role === 'instructor') {
+      const unsubscribeCourseEngagement = onSnapshot(
+        query(
+          collection(db, 'course_engagement'),
+          where('instructorId', '==', user.uid),
+          orderBy('timestamp', 'desc')
+        ),
+        (snapshot) => {
+          const engagementData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+
+          // Calculate instructor stats
+          const stats = {
+            totalViews: 0,
+            totalRevenue: 0,
+            totalStudents: new Set(),
+            averageRating: 0,
+            totalCourses: 0
+          };
+
+          engagementData.forEach(data => {
+            if (data.action === 'view') stats.totalViews++;
+            if (data.action === 'enroll') {
+              stats.totalRevenue += data.data.amount || 0;
+              stats.totalStudents.add(data.data.userId);
+            }
+          });
+
+          setStats(prev => ({
+            ...prev,
+            totalViews: stats.totalViews,
+            totalRevenue: stats.totalRevenue,
+            totalStudents: stats.totalStudents.size
+          }));
+        }
+      );
+
+      return () => {
+        unsubscribeProgress();
+        unsubscribeEngagement();
+        unsubscribeCourseEngagement();
+      };
+    }
+
+    return () => {
+      unsubscribeProgress();
+      unsubscribeEngagement();
+    };
+  }, [user?.uid, user?.role]);
+
+  // Add real-time course completion tracking
+  useEffect(() => {
+    if (!user?.uid || user?.role !== 'student') return;
+
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, 'enrollments'),
+        where('userId', '==', user.uid)
+      ),
+      async (snapshot) => {
+        let completed = 0;
+        let totalHours = 0;
+
+        await Promise.all(snapshot.docs.map(async (doc) => {
+          const data = doc.data();
+          const courseDoc = await getDoc(doc(db, 'courses', data.courseId));
+          if (!courseDoc.exists()) return;
+
+          const courseData = courseDoc.data();
+          const completedLessons = Object.values(data.progress || {}).filter(Boolean).length;
+          const totalLessons = courseData.lessons?.length || 0;
+
+          if (completedLessons === totalLessons && totalLessons > 0) {
+            completed++;
+          }
+
+          totalHours += courseData.lessons?.reduce((acc, lesson) => {
+            return acc + (parseInt(lesson.duration) || 0);
+          }, 0) || 0;
+        }));
+
+        setStats(prev => ({
+          ...prev,
+          coursesCompleted: completed,
+          totalHoursLearned: Math.round(totalHours / 60)
+        }));
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.role]);
 
   if (isLoading) {
     return (
