@@ -295,7 +295,7 @@ const Community = () => {
                           {discussion.message}
                         </h3>
                         <p className="mt-1 text-sm text-gray-500">
-                            Started by {discussion.userName || 'Anonymous'} •{' '}
+                            Started by {discussion.userName || (discussion.userId ? discussion.userId.slice(0, 5) + '...' : 'Student')} •{' '}
                           {discussion.createdAt?.seconds
                             ? new Date(discussion.createdAt.seconds * 1000).toLocaleString()
                             : 'Just now'}

@@ -256,11 +256,17 @@ const CourseDetail = () => {
   // Submit review mutation
   const submitReviewMutation = useMutation({
     mutationFn: async () => {
+      // Fix Anonymous User issue
+      const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Student');
+      const userAvatar = user.photoURL || null;
+      
       const reviewRef = await addDoc(collection(db, 'reviews'), {
         userId: user.uid,
+        userName: displayName,
+        userAvatar: userAvatar,
         courseId,
         rating,
-        review,
+        comment: review,
         createdAt: serverTimestamp(),
       });
 
@@ -432,9 +438,12 @@ const CourseDetail = () => {
         return;
       }
 
+      // Fix Anonymous User issue
+      const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Student');
+      
       const commentData = {
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
+        userName: displayName,
         courseId,
         lessonId: selectedLesson.id,
         comment: newComment.trim(),
@@ -1162,11 +1171,11 @@ const CourseDetail = () => {
                           <div className="flex-1 bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="font-medium text-gray-900">
-                                {comment.userName || 'Anonymous'}
+                                {comment.userName || (comment.userId ? comment.userId.slice(0, 5) + '...' : 'Student')}
                                 {comment.userRole === 'instructor' && (
                                   <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
                                     Instructor
-                              </span>
+                                  </span>
                                 )}
                               </span>
                               <div className="flex items-center">
@@ -1617,7 +1626,7 @@ const CourseDetail = () => {
                           <UserCircleIcon className="h-8 w-8 text-gray-400 mr-3" />
                         )}
                         <span className="font-medium text-gray-900">
-                          {review.userName || 'Anonymous User'}
+                          {review.userName || (review.userId ? review.userId.slice(0, 5) + '...' : 'Student')}
                         </span>
                       </div>
                       <div className="flex items-center">

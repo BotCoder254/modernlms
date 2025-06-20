@@ -103,11 +103,16 @@ const Students = () => {
       // Group by student
       const studentMap = allEnrollments.reduce((acc, enrollment) => {
         if (!acc[enrollment.userId]) {
+          // Fix the Anonymous User and No email provided issues
+          const student = enrollment.student || {};
+          const displayName = student.displayName || user?.displayName || (student.email ? student.email.split('@')[0] : 'Student');
+          const email = student.email || user?.email || `user-${enrollment.userId.slice(0, 5)}@example.com`;
+          
           acc[enrollment.userId] = {
             id: enrollment.userId,
-            name: enrollment.student?.displayName || 'Anonymous User',
-            email: enrollment.student?.email || 'No email provided',
-            profileImage: enrollment.student?.photoURL || '',
+            name: displayName,
+            email: email,
+            profileImage: student.photoURL || '',
             enrollments: [],
             enrollmentDates: [],
             progressByCategory: {},

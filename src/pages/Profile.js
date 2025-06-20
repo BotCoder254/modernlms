@@ -59,12 +59,14 @@ const Profile = () => {
           <div className="px-6 py-6">
             <div className="flex items-center space-x-4 mb-8 pb-6 border-b border-gray-100">
               <div className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold">
-                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : user?.email ? user.email.charAt(0).toUpperCase() : 'S'}
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">{user?.displayName || 'User'}</h3>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {user?.displayName || (user?.email ? user.email.split('@')[0] : 'Student')}
+                </h3>
                 <p className="text-sm text-gray-500 capitalize">{user?.role || 'Student'}</p>
-                <p className="text-sm text-gray-500">{user?.email}</p>
+                <p className="text-sm text-gray-500">{user?.email || 'No email provided'}</p>
               </div>
             </div>
 

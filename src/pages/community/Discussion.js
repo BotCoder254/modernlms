@@ -216,10 +216,13 @@ const Discussion = () => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
+    // Fix Anonymous User issue
+    const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Student');
+    
     addMessageMutation.mutate({
       courseId,
       userId: user.uid,
-      userName: user.displayName,
+      userName: displayName,
       userRole: user.role,
       message: newMessage.trim(),
     });
@@ -267,7 +270,7 @@ const Discussion = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {message.userName || 'Anonymous'}
+                          {message.userName || (message.userId ? message.userId.slice(0, 5) + '...' : 'Student')}
                           {message.userRole === 'instructor' && (
                             <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
                               Instructor
