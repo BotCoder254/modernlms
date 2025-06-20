@@ -133,11 +133,11 @@ const Community = () => {
   useEffect(() => {
     setIsLoading(true);
     
-    const discussionsRef = collection(db, 'discussions');
+      const discussionsRef = collection(db, 'discussions');
     let q;
 
     // Simple query without compound index requirements
-    if (selectedCourse !== 'all') {
+      if (selectedCourse !== 'all') {
       q = query(discussionsRef, where('courseId', '==', selectedCourse), limit(50));
     } else {
       q = query(discussionsRef, limit(50));
@@ -166,11 +166,11 @@ const Community = () => {
           let discussionsList = Array.from(discussionsMap.values());
           
           // Apply client-side sorting based on selected sort option
-          switch (sortBy) {
-            case 'popular':
+      switch (sortBy) {
+        case 'popular':
               discussionsList = discussionsList.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-              break;
-            case 'unanswered':
+          break;
+        case 'unanswered':
               discussionsList = discussionsList.filter(d => !(d.responseCount && d.responseCount > 0))
                 .sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds || 0);
               break;
@@ -178,7 +178,7 @@ const Community = () => {
               discussionsList = discussionsList.sort((a, b) => 
                 b.createdAt?.seconds - a.createdAt?.seconds || 0
               );
-              break;
+          break;
           }
           
           setDiscussions(discussionsList);

@@ -64,7 +64,7 @@ const Discussion = () => {
       try {
         // Use a Map to ensure we don't have duplicate IDs
         const messagesMap = new Map();
-        snapshot.forEach((doc) => {
+      snapshot.forEach((doc) => {
           const data = doc.data();
           // Create a truly unique key by combining id with timestamp
           const uniqueId = `${doc.id}-${data.createdAt ? data.createdAt.seconds : Date.now()}`;
@@ -79,7 +79,7 @@ const Discussion = () => {
         // Convert Map back to array and sort by timestamp
         const newMessages = Array.from(messagesMap.values())
           .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
-        setMessages(newMessages);
+      setMessages(newMessages);
       } catch (error) {
         console.error("Error processing messages:", error);
       }
@@ -124,7 +124,7 @@ const Discussion = () => {
       try {
         if (!user?.uid) throw new Error('User not authenticated');
         
-        const messageRef = doc(db, 'discussions', messageId);
+      const messageRef = doc(db, 'discussions', messageId);
         const message = messages.find(m => m.id === messageId);
         if (!message) return;
         
@@ -133,8 +133,8 @@ const Discussion = () => {
           ? [...likedBy, user.uid]
           : likedBy.filter(id => id !== user.uid);
           
-        await updateDoc(messageRef, {
-          likes: increment(liked ? 1 : -1),
+      await updateDoc(messageRef, {
+        likes: increment(liked ? 1 : -1),
           likedBy: updatedLikedBy,
         });
       } catch (error) {
@@ -221,7 +221,7 @@ const Discussion = () => {
 
     // Fix Anonymous User issue
     const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Student');
-    
+
     addMessageMutation.mutate({
       courseId: courseId || 'unknown',
       userId: user?.uid || 'unknown',

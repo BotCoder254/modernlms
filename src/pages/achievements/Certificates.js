@@ -9,6 +9,8 @@ import {
   TrophyIcon,
   DocumentArrowDownIcon,
   StarIcon,
+  ShareIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline';
 
 const Certificates = () => {
@@ -46,6 +48,23 @@ const Certificates = () => {
     },
   });
 
+  // Function to share certificate
+  const shareCertificate = (certificate) => {
+    if (navigator.share) {
+      navigator.share({
+        title: `${certificate.courseName} Certificate`,
+        text: `I completed ${certificate.courseName} course!`,
+        url: certificate.pdfUrl,
+      })
+      .catch((error) => console.error('Error sharing:', error));
+    } else {
+      // Fallback for browsers that don't support navigator.share
+      navigator.clipboard.writeText(certificate.pdfUrl)
+        .then(() => alert('Certificate link copied to clipboard!'))
+        .catch((error) => console.error('Error copying link:', error));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,7 +99,10 @@ const Certificates = () => {
                   key={certificate.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-gray-50 rounded-lg p-6 hover:shadow-md transition-shadow"
+                  className="bg-gray-50 rounded-lg p-6 hover:shadow-md transition-shadow border border-gray-100"
+                  style={{ 
+                    borderTop: `4px solid ${certificate.templateColor || '#1E40AF'}` 
+                  }}
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -91,17 +113,38 @@ const Certificates = () => {
                         Completed on {new Date(certificate.completedAt?.seconds * 1000).toLocaleDateString()}
                       </p>
                     </div>
-                    <button
-                      onClick={() => window.open(certificate.pdfUrl, '_blank')}
-                      className="p-2 text-blue-600 hover:text-blue-700"
-                    >
-                      <DocumentArrowDownIcon className="h-6 w-6" />
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => shareCertificate(certificate)}
+                        className="p-2 text-gray-600 hover:text-blue-600"
+                        title="Share Certificate"
+                      >
+                        <ShareIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => window.open(certificate.pdfUrl, '_blank')}
+                        className="p-2 text-blue-600 hover:text-blue-700"
+                        title="Download Certificate"
+                      >
+                        <DocumentArrowDownIcon className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
+                  
+                  <div className="flex items-center text-sm text-gray-600 mb-3">
                     <StarIcon className="h-5 w-5 text-yellow-400 mr-1" />
                     {certificate.grade || 'Pass'}
                   </div>
+                  
+                  {/* Instructor info */}
+                  {certificate.instructorName && (
+                    <div className="flex items-center mt-4 pt-4 border-t border-gray-100">
+                      <UserCircleIcon className="h-5 w-5 text-gray-400 mr-2" />
+                      <span className="text-sm text-gray-600">
+                        Certified by {certificate.instructorName}
+                      </span>
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>

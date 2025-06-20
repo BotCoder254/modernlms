@@ -455,7 +455,7 @@ const CourseDetail = () => {
 
       // Fix Anonymous User issue
       const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Student');
-      
+
       const commentData = {
         userId: user.uid,
         userName: displayName,
@@ -1205,7 +1205,7 @@ const CourseDetail = () => {
                                 {comment.userRole === 'instructor' && (
                                   <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
                                     Instructor
-                                  </span>
+                              </span>
                                 )}
                               </span>
                               <div className="flex items-center">

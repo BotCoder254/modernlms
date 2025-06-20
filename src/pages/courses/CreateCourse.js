@@ -27,10 +27,19 @@ import {
   DocumentIcon,
   ArrowPathIcon,
   DocumentArrowUpIcon,
+  DocumentCheckIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 
 const categories = ['Programming', 'Design', 'Business', 'Marketing', 'Music', 'Photography'];
 const levels = ['Beginner', 'Intermediate', 'Advanced'];
+const certificateTemplates = [
+  { id: 'default', name: 'Default Template', color: '#1E40AF' },
+  { id: 'modern', name: 'Modern', color: '#047857' },
+  { id: 'elegant', name: 'Elegant', color: '#7C3AED' },
+  { id: 'minimal', name: 'Minimal', color: '#1F2937' },
+  { id: 'creative', name: 'Creative', color: '#B45309' },
+];
 
 const CreateCourse = () => {
   const navigate = useNavigate();
@@ -52,6 +61,20 @@ const CreateCourse = () => {
     outcomes: [],
   });
 
+  // Add certificate template state
+  const [certificateTemplate, setCertificateTemplate] = useState({
+    templateId: 'default',
+    color: '#1E40AF',
+    instructorName: user?.displayName || '',
+    instructorSignature: null,
+    instructorSignatureUrl: '',
+    showInstructorName: true,
+    logo: null,
+    logoUrl: '',
+  });
+
+  const [showCertificateSection, setShowCertificateSection] = useState(false);
+
   const [lessons, setLessons] = useState([{
     title: '',
     description: '',
@@ -67,6 +90,8 @@ const CreateCourse = () => {
   // Add upload progress states
   const [fileUploads, setFileUploads] = useState({
     thumbnail: { progress: 0, uploading: false },
+    signature: { progress: 0, uploading: false },
+    logo: { progress: 0, uploading: false },
     videos: {},
     materials: {},
   });
@@ -85,6 +110,30 @@ const CreateCourse = () => {
     }
   }, []);
 
+  // Upload handler for instructor signature
+  const handleSignatureUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCertificateTemplate((prev) => ({
+        ...prev,
+        instructorSignature: file,
+        instructorSignaturePreview: URL.createObjectURL(file),
+      }));
+    }
+  };
+
+  // Upload handler for certificate logo
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCertificateTemplate((prev) => ({
+        ...prev,
+        logo: file,
+        logoPreview: URL.createObjectURL(file),
+      }));
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -92,6 +141,18 @@ const CreateCourse = () => {
     },
     maxFiles: 1,
   });
+
+  // Handle certificate template selection
+  const handleTemplateChange = (templateId) => {
+    const template = certificateTemplates.find(t => t.id === templateId);
+    if (template) {
+      setCertificateTemplate(prev => ({
+        ...prev,
+        templateId: templateId,
+        color: template.color,
+      }));
+    }
+  };
 
   // Enhanced video upload with progress tracking
   const handleLessonVideoChange = async (e, index) => {
@@ -293,6 +354,80 @@ const CreateCourse = () => {
           thumbnail: { progress: 100, uploading: false, complete: true }
         }));
       }
+
+      // Upload instructor signature if provided
+      let signatureUrl = '';
+      if (certificateTemplate.instructorSignature) {
+        const signatureRef = ref(
+          storage, 
+          `courses/certificates/${courseData.title || 'untitled'}/signature.png`
+        );
+        
+        // Start progress tracking
+        setFileUploads(prev => ({
+          ...prev,
+          signature: { progress: 0, uploading: true }
+        }));
+        
+        const uploadTask = uploadBytesResumable(signatureRef, certificateTemplate.instructorSignature);
+        
+        // Monitor signature upload progress
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setFileUploads(prev => ({
+              ...prev,
+              signature: { progress: Math.round(progress), uploading: true }
+            }));
+          }
+        );
+        
+        await uploadTask;
+        signatureUrl = await getDownloadURL(signatureRef);
+        
+        // Mark signature upload as complete
+        setFileUploads(prev => ({
+          ...prev,
+          signature: { progress: 100, uploading: false, complete: true }
+        }));
+      }
+
+      // Upload certificate logo if provided
+      let logoUrl = '';
+      if (certificateTemplate.logo) {
+        const logoRef = ref(
+          storage, 
+          `courses/certificates/${courseData.title || 'untitled'}/logo.png`
+        );
+        
+        // Start progress tracking
+        setFileUploads(prev => ({
+          ...prev,
+          logo: { progress: 0, uploading: true }
+        }));
+        
+        const uploadTask = uploadBytesResumable(logoRef, certificateTemplate.logo);
+        
+        // Monitor logo upload progress
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setFileUploads(prev => ({
+              ...prev,
+              logo: { progress: Math.round(progress), uploading: true }
+            }));
+          }
+        );
+        
+        await uploadTask;
+        logoUrl = await getDownloadURL(logoRef);
+        
+        // Mark logo upload as complete
+        setFileUploads(prev => ({
+          ...prev,
+          logo: { progress: 100, uploading: false, complete: true }
+        }));
+      }
       
       // Upload videos with progress tracking
       const lessonsWithUrls = await Promise.all(
@@ -354,6 +489,16 @@ const CreateCourse = () => {
         })
       );
 
+      // Prepare certificate template data
+      const certificateTemplateData = {
+        templateId: certificateTemplate.templateId,
+        color: certificateTemplate.color,
+        instructorName: certificateTemplate.instructorName || user.displayName,
+        showInstructorName: certificateTemplate.showInstructorName,
+        instructorSignatureUrl: signatureUrl,
+        logo: logoUrl
+      };
+
       // Create course document with version control
       const courseRef = await addDoc(collection(db, 'courses'), {
         title: courseData.title,
@@ -377,6 +522,7 @@ const CreateCourse = () => {
         requirements: courseData.requirements,
         outcomes: courseData.outcomes,
         version: 1, // Add version control
+        certificateTemplate: certificateTemplateData, // Add certificate template data
         versionHistory: [
           {
             version: 1,
@@ -796,6 +942,280 @@ const CreateCourse = () => {
               <p className="text-sm text-red-600">{uploadError}</p>
             </div>
           )}
+
+          {/* Certificate Template Section */}
+          <div className="pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                <DocumentCheckIcon className="h-5 w-5 text-blue-500 mr-2" />
+                Certificate Customization
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowCertificateSection(!showCertificateSection)}
+                className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+              >
+                {showCertificateSection ? 'Hide Options' : 'Show Options'}
+              </button>
+            </div>
+
+            {showCertificateSection && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-6 bg-gray-50 p-4 rounded-lg"
+              >
+                {/* Template Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Certificate Template
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                    {certificateTemplates.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        className={`relative rounded-md p-3 text-center cursor-pointer border ${
+                          certificateTemplate.templateId === template.id
+                            ? 'border-blue-500 ring-2 ring-blue-200'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => handleTemplateChange(template.id)}
+                      >
+                        <div 
+                          className="h-8 rounded mb-2" 
+                          style={{ backgroundColor: template.color }} 
+                        />
+                        <span className="block text-xs font-medium">
+                          {template.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Color Customization */}
+                <div>
+                  <label htmlFor="templateColor" className="block text-sm font-medium text-gray-700 mb-2">
+                    Certificate Accent Color
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="color"
+                      id="templateColor"
+                      value={certificateTemplate.color}
+                      onChange={(e) => setCertificateTemplate(prev => ({ ...prev, color: e.target.value }))}
+                      className="h-10 w-10 p-0 border-0 rounded-md"
+                    />
+                    <input
+                      type="text"
+                      value={certificateTemplate.color}
+                      onChange={(e) => setCertificateTemplate(prev => ({ ...prev, color: e.target.value }))}
+                      className="block w-36 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                {/* Instructor Name */}
+                <div>
+                  <label htmlFor="instructorName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Instructor Name on Certificate
+                  </label>
+                  <input
+                    type="text"
+                    id="instructorName"
+                    value={certificateTemplate.instructorName}
+                    onChange={(e) => setCertificateTemplate(prev => ({ ...prev, instructorName: e.target.value }))}
+                    placeholder="Name as appears on certificates"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <div className="flex items-center mt-2">
+                    <input
+                      type="checkbox"
+                      id="showInstructorName"
+                      checked={certificateTemplate.showInstructorName}
+                      onChange={(e) => setCertificateTemplate(prev => ({ 
+                        ...prev, 
+                        showInstructorName: e.target.checked 
+                      }))}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showInstructorName" className="ml-2 block text-sm text-gray-700">
+                      Show instructor name on certificate
+                    </label>
+                  </div>
+                </div>
+
+                {/* Instructor Signature */}
+                <div>
+                  <label htmlFor="instructorSignature" className="block text-sm font-medium text-gray-700 mb-2">
+                    Instructor Signature
+                  </label>
+                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div className="space-y-1 text-center">
+                      {certificateTemplate.instructorSignaturePreview ? (
+                        <div className="relative">
+                          <img 
+                            src={certificateTemplate.instructorSignaturePreview} 
+                            alt="Signature preview" 
+                            className="mx-auto h-24 object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCertificateTemplate(prev => ({ 
+                              ...prev, 
+                              instructorSignature: null,
+                              instructorSignaturePreview: null
+                            }))}
+                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <PencilIcon className="h-12 w-12 text-gray-400 mx-auto" />
+                          <div className="flex justify-center text-sm text-gray-600">
+                            <label htmlFor="signature-upload" className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                              <span>Upload a signature</span>
+                              <input 
+                                id="signature-upload" 
+                                type="file" 
+                                className="sr-only" 
+                                accept="image/*" 
+                                onChange={handleSignatureUpload} 
+                              />
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+                        </>
+                      )}
+                      {fileUploads.signature.uploading && (
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full" 
+                            style={{ width: `${fileUploads.signature.progress}%` }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Custom Logo */}
+                <div>
+                  <label htmlFor="logo" className="block text-sm font-medium text-gray-700 mb-2">
+                    Certificate Logo (Optional)
+                  </label>
+                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div className="space-y-1 text-center">
+                      {certificateTemplate.logoPreview ? (
+                        <div className="relative">
+                          <img 
+                            src={certificateTemplate.logoPreview} 
+                            alt="Logo preview" 
+                            className="mx-auto h-24 object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCertificateTemplate(prev => ({ 
+                              ...prev, 
+                              logo: null,
+                              logoPreview: null
+                            }))}
+                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <CloudArrowUpIcon className="h-12 w-12 text-gray-400 mx-auto" />
+                          <div className="flex justify-center text-sm text-gray-600">
+                            <label htmlFor="logo-upload" className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                              <span>Upload your logo</span>
+                              <input 
+                                id="logo-upload" 
+                                type="file" 
+                                className="sr-only" 
+                                accept="image/*" 
+                                onChange={handleLogoUpload} 
+                              />
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+                        </>
+                      )}
+                      {fileUploads.logo.uploading && (
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full" 
+                            style={{ width: `${fileUploads.logo.progress}%` }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Certificate Preview Placeholder */}
+                <div className="border-t border-gray-200 pt-4">
+                  <p className="text-sm text-gray-500 mb-3">
+                    Preview of how your certificate will look. Actual certificate will include student name, 
+                    course title, and completion date.
+                  </p>
+                  <div 
+                    className="border border-gray-300 bg-white rounded-lg p-6 relative"
+                    style={{ 
+                      borderTop: `4px solid ${certificateTemplate.color}`,
+                      minHeight: '180px'
+                    }}
+                  >
+                    {/* Logo */}
+                    {certificateTemplate.logoPreview && (
+                      <div className="absolute top-4 left-4">
+                        <img 
+                          src={certificateTemplate.logoPreview} 
+                          alt="Certificate logo" 
+                          className="h-10 object-contain" 
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold mb-2">Certificate of Completion</h3>
+                      <p className="text-gray-700 mb-4">This certifies that</p>
+                      <p className="text-xl font-bold mb-4 text-gray-800">[Student Name]</p>
+                      <p className="text-gray-700 mb-6">has successfully completed</p>
+                      <p className="text-lg font-semibold mb-6">{courseData.title || '[Course Title]'}</p>
+                      
+                      {/* Signature area */}
+                      <div className="mt-8 pt-8 flex items-center justify-center">
+                        {certificateTemplate.instructorSignaturePreview ? (
+                          <img 
+                            src={certificateTemplate.instructorSignaturePreview} 
+                            alt="Instructor signature" 
+                            className="h-12 object-contain mb-2"
+                          />
+                        ) : (
+                          <div 
+                            className="h-px w-40 bg-gray-400 mb-2"
+                            style={{ backgroundColor: certificateTemplate.color }}
+                          ></div>
+                        )}
+                      </div>
+                      {certificateTemplate.showInstructorName && (
+                        <p className="text-sm text-gray-600">
+                          {certificateTemplate.instructorName || user?.displayName || 'Instructor Name'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
 
           <div className="flex justify-end">
             <button

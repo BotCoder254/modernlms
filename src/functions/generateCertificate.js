@@ -1,24 +1,51 @@
 import { storage } from '../config/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
-export const generateCertificate = async (userId, courseId, courseName, userName, grade) => {
+export const generateCertificate = async (userId, courseId, courseName, userName, grade, instructorName, completionDate) => {
   try {
-    // Create certificate data
+    // Get course template information if available
+    let templateData = {};
+    try {
+      const courseRef = doc(db, 'courses', courseId);
+      const courseDoc = await getDoc(courseRef);
+      
+      if (courseDoc.exists()) {
+        const courseData = courseDoc.data();
+        templateData = courseData.certificateTemplate || {};
+      }
+    } catch (error) {
+      console.warn('Could not fetch certificate template:', error);
+      // Continue with default template
+    }
+    
+    // Create certificate data with template customizations
     const certificateData = {
       userId,
       courseId,
       courseName,
       userName,
       grade,
-      completedAt: serverTimestamp(),
+      instructorName: instructorName || templateData.instructorName || 'Course Instructor',
+      instructorSignatureUrl: templateData.instructorSignatureUrl || null,
+      templateId: templateData.templateId || 'default',
+      templateColor: templateData.color || '#1E40AF', // Default blue color
+      templateLogo: templateData.logo || null,
+      completedAt: completionDate || serverTimestamp(),
       createdAt: serverTimestamp(),
     };
 
-    // Generate certificate PDF (you would need to implement this part)
-    // For now, we'll just create a placeholder certificate URL
-    const certificateUrl = `https://api.yourservice.com/generate-certificate?courseId=${courseId}&userId=${userId}`;
+    // Generate certificate URL with template parameters
+    const templateParams = new URLSearchParams({
+      courseId,
+      userId,
+      template: certificateData.templateId,
+      color: certificateData.templateColor.replace('#', ''),
+    }).toString();
+    
+    // In a real implementation, this would point to an actual certificate generation service
+    const certificateUrl = `https://api.yourservice.com/generate-certificate?${templateParams}`;
 
     // Add certificate to Firestore
     const certificateRef = await addDoc(collection(db, 'certificates'), {
