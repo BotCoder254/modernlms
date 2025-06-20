@@ -121,13 +121,13 @@ const Certificates = () => {
                       >
                         <ShareIcon className="h-5 w-5" />
                       </button>
-                      <button
-                        onClick={() => window.open(certificate.pdfUrl, '_blank')}
-                        className="p-2 text-blue-600 hover:text-blue-700"
+                    <button
+                      onClick={() => window.open(certificate.pdfUrl, '_blank')}
+                      className="p-2 text-blue-600 hover:text-blue-700"
                         title="Download Certificate"
-                      >
+                    >
                         <DocumentArrowDownIcon className="h-5 w-5" />
-                      </button>
+                    </button>
                     </div>
                   </div>
                   
