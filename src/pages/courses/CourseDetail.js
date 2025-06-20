@@ -43,6 +43,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   BookmarkIcon as BookmarkOutlineIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolidIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 import PaymentForm from '../../components/PaymentForm';
@@ -373,6 +374,48 @@ const CourseDetail = () => {
 
     return () => unsubscribeProgress();
   }, [user?.uid, courseId, user?.role]);
+
+  // Add real-time student enrollment tracking for instructors
+  useEffect(() => {
+    if (!user?.uid || !courseId || user?.role !== 'instructor' || !course?.instructorId || course?.instructorId !== user?.uid) return;
+
+    const unsubscribeEnrollments = onSnapshot(
+      query(collection(db, 'enrollments'), where('courseId', '==', courseId)),
+      (snapshot) => {
+        try {
+          // Update real-time student count in UI without requiring page reload
+          if (course) {
+            const updatedEnrollmentCount = snapshot.size;
+            queryClient.setQueryData(['course', courseId], {
+              ...course,
+              enrollmentCount: updatedEnrollmentCount
+            });
+          }
+        } catch (error) {
+          console.error('Error processing enrollments:', error);
+        }
+      }
+    );
+
+    return () => unsubscribeEnrollments();
+  }, [user?.uid, courseId, user?.role, course, queryClient]);
+
+  // Add function to check for course updates
+  const { data: courseVersions } = useQuery({
+    queryKey: ['courseVersions', courseId],
+    queryFn: async () => {
+      if (!courseId) return [];
+      
+      const versionsRef = collection(db, 'courseVersions');
+      const q = query(versionsRef, where('courseId', '==', courseId));
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => b.version - a.version);
+    },
+    enabled: !!courseId && !!user
+  });
 
   // Update the handleAddComment function
   const handleAddComment = async () => {
@@ -835,19 +878,19 @@ const CourseDetail = () => {
             </div>
               <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
               <div className="flex items-center space-x-4 text-sm">
-                <div className="flex items-center">
+            <div className="flex items-center">
                   <StarIcon className="h-4 w-4 text-yellow-400 mr-1" />
                   {(course.rating / course.reviewCount || 0).toFixed(1)} ({course.reviewCount} reviews)
-                </div>
-                <div className="flex items-center">
+            </div>
+            <div className="flex items-center">
                   <UserGroupIcon className="h-4 w-4 mr-1" />
-                  {course.enrollmentCount} students
-                </div>
-                <div className="flex items-center">
+              {course.enrollmentCount} students
+            </div>
+            <div className="flex items-center">
                   <ClockIcon className="h-4 w-4 mr-1" />
                   {totalLessons} lessons
-                </div>
-              </div>
+            </div>
+          </div>
             </div>
           </div>
           
@@ -923,6 +966,41 @@ const CourseDetail = () => {
           )}
           </div>
         </div>
+
+        {isEnrolled && courseVersions && courseVersions.length > 1 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Course Updates</h3>
+            <div className="bg-blue-50 rounded-lg p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <InformationCircleIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-blue-800">
+                    This course was updated on {new Date(courseVersions[0].updatedAt).toLocaleDateString()}
+                  </h4>
+                  <p className="mt-1 text-sm text-blue-700">
+                    {courseVersions[0].changelog || 'Course content has been updated.'}
+                  </p>
+                  <details className="mt-2">
+                    <summary className="text-xs text-blue-800 cursor-pointer hover:underline">
+                      Version history
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      {courseVersions.map((version, index) => (
+                        <div key={`version-${index}`} className="text-xs">
+                          <span className="font-medium">v{version.version}</span> - 
+                          {new Date(version.updatedAt).toLocaleDateString()} - 
+                          {version.changelog}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Course Content */}
@@ -1182,7 +1260,7 @@ const CourseDetail = () => {
                     <span className="ml-auto text-sm text-white/90 bg-white/20 px-3 py-1 rounded-full">
                       {completedLessons} of {totalLessons} lessons complete
                     </span>
-                  )}
+                )}
                 </h2>
               </div>
               
@@ -1375,7 +1453,7 @@ const CourseDetail = () => {
                       placeholder="Share details about your experience taking this course..."
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       rows={5}
-                    />
+                />
                   </div>
                   
                   <div className="flex justify-end">
@@ -1383,7 +1461,7 @@ const CourseDetail = () => {
                   onClick={() => submitReviewMutation.mutate()}
                   disabled={!rating || !review || submitReviewMutation.isLoading}
                       className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                >
                       {submitReviewMutation.isLoading ? (
                         <>
                           <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

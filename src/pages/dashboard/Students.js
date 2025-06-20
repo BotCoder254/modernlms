@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
@@ -24,6 +24,7 @@ import {
 const Students = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const queryClient = useQueryClient();
 
   const { data: studentData = [], isLoading } = useQuery({
     queryKey: ['students', user?.uid],
@@ -143,6 +144,47 @@ const Students = () => {
     },
     enabled: !!user,
   });
+
+  // Set up real-time student data subscription
+  useEffect(() => {
+    if (!user?.uid || user?.role !== 'instructor') return;
+    
+    // First get all courses by the instructor
+    const getCoursesAndSetupListeners = async () => {
+      const coursesRef = collection(db, 'courses');
+      const courseQuery = query(coursesRef, where('instructorId', '==', user.uid));
+      const courseSnapshot = await getDocs(courseQuery);
+      const courseIds = courseSnapshot.docs.map(doc => doc.id);
+      
+      // Set up listeners for enrollments on each course
+      const unsubscribers = courseIds.map(courseId => {
+        return onSnapshot(
+          query(collection(db, 'enrollments'), where('courseId', '==', courseId)),
+          () => {
+            // When enrollments change, invalidate the query to update data
+            queryClient.invalidateQueries(['students', user?.uid]);
+          },
+          (error) => console.error('Enrollment subscription error:', error)
+        );
+      });
+      
+      // Return cleanup function
+      return () => {
+        unsubscribers.forEach(unsubscribe => unsubscribe());
+      };
+    };
+    
+    const unsubscribe = getCoursesAndSetupListeners();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      } else if (unsubscribe instanceof Promise) {
+        unsubscribe.then(cleanup => {
+          if (cleanup) cleanup();
+        });
+      }
+    };
+  }, [user?.uid, user?.role, queryClient]);
 
   const filteredStudents = searchTerm
     ? studentData.filter(

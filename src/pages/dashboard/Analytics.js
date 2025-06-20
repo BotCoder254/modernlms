@@ -201,13 +201,13 @@ const Analytics = () => {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="bg-white rounded-xl shadow-md p-6 border border-gray-100"
           >
-            <div className="flex items-center justify-between">
-              <div>
+              <div className="flex items-center justify-between">
+                <div>
                 <p className="text-sm font-medium text-gray-500">Total Students</p>
-                <p className="mt-1 text-3xl font-bold text-gray-900">
-                  {totalStats.totalStudents}
-                </p>
-              </div>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">
+                    {totalStats.totalStudents}
+                  </p>
+                </div>
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                 <UsersIcon className="h-6 w-6 text-blue-600" />
               </div>
@@ -220,13 +220,13 @@ const Analytics = () => {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="bg-white rounded-xl shadow-md p-6 border border-gray-100"
           >
-            <div className="flex items-center justify-between">
-              <div>
+              <div className="flex items-center justify-between">
+                <div>
                 <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                <p className="mt-1 text-3xl font-bold text-gray-900">
-                  ${totalStats.totalRevenue}
-                </p>
-              </div>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">
+                    ${totalStats.totalRevenue}
+                  </p>
+                </div>
               <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
                 <CurrencyDollarIcon className="h-6 w-6 text-green-600" />
               </div>
@@ -239,13 +239,13 @@ const Analytics = () => {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="bg-white rounded-xl shadow-md p-6 border border-gray-100"
           >
-            <div className="flex items-center justify-between">
-              <div>
+              <div className="flex items-center justify-between">
+                <div>
                 <p className="text-sm font-medium text-gray-500">Average Rating</p>
-                <p className="mt-1 text-3xl font-bold text-gray-900">
-                  {totalStats.averageRating.toFixed(1)}
-                </p>
-              </div>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">
+                    {totalStats.averageRating.toFixed(1)}
+                  </p>
+                </div>
               <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
                 <StarIcon className="h-6 w-6 text-yellow-600" />
               </div>
@@ -258,13 +258,13 @@ const Analytics = () => {
             transition={{ duration: 0.5, delay: 0.4 }}
             className="bg-white rounded-xl shadow-md p-6 border border-gray-100"
           >
-            <div className="flex items-center justify-between">
-              <div>
+              <div className="flex items-center justify-between">
+                <div>
                 <p className="text-sm font-medium text-gray-500">Total Reviews</p>
-                <p className="mt-1 text-3xl font-bold text-gray-900">
-                  {totalStats.totalReviews}
-                </p>
-              </div>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">
+                    {totalStats.totalReviews}
+                  </p>
+                </div>
               <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
                 <ChartBarIcon className="h-6 w-6 text-purple-600" />
               </div>
@@ -383,7 +383,7 @@ const Analytics = () => {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
+          </div>
           </motion.div>
         </div>
 
@@ -448,8 +448,8 @@ const Analytics = () => {
                             <img className="h-10 w-10 rounded-md object-cover" src={course.thumbnail} alt="" />
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{course.title}</div>
-                            <div className="text-sm text-gray-500">{course.category}</div>
+                        <div className="text-sm font-medium text-gray-900">{course.title}</div>
+                        <div className="text-sm text-gray-500">{course.category}</div>
                           </div>
                         </div>
                       </td>
@@ -493,4 +493,4 @@ const Analytics = () => {
   );
 };
 
-export default Analytics;
+export default Analytics; 

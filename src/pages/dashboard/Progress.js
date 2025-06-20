@@ -199,7 +199,7 @@ const Progress = () => {
       lessonsPercentage
     };
   });
-  
+
   const getAverageRating = (courseId) => {
     const reviews = courseReviews[courseId] || [];
     if (reviews.length === 0) return 0;
@@ -261,7 +261,7 @@ const Progress = () => {
                   className="bg-white h-2.5 rounded-full transition-all duration-500"
                   style={{ width: `${overallPercentage}%` }}
                 />
-              </div>
+            </div>
             </motion.div>
             
             <motion.div 
@@ -284,7 +284,7 @@ const Progress = () => {
               <div className="mt-4 flex items-center text-green-100">
                 <AcademicCapIcon className="h-4 w-4 mr-1" />
                 <span className="text-sm">Keep learning to improve your skills</span>
-              </div>
+            </div>
             </motion.div>
             
             <motion.div 
@@ -394,7 +394,7 @@ const Progress = () => {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+          </div>
           </motion.div>
         </div>
 
@@ -488,4 +488,4 @@ const Progress = () => {
   );
 };
 
-export default Progress;
+export default Progress; 

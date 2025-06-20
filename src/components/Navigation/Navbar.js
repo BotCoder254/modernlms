@@ -24,13 +24,14 @@ import { toast } from 'react-hot-toast';
 
 const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: HomeIcon, roles: ['student', 'instructor'] },
-  { name: 'My Courses', path: '/my-courses', icon: BookOpenIcon, roles: ['student', 'instructor'] },
+  { name: 'My Courses', path: '/dashboard/my-courses', icon: BookOpenIcon, roles: ['student', 'instructor'] },
   { name: 'Course List', path: '/courses', icon: AcademicCapIcon, roles: ['student', 'instructor'] },
-  { name: 'Progress', path: '/progress', icon: ChartBarIcon, roles: ['student'] },
-  { name: 'Analytics', path: '/analytics', icon: ChartBarIcon, roles: ['instructor'] },
-  { name: 'Students', path: '/students', icon: UserGroupIcon, roles: ['instructor'] },
+  { name: 'Progress', path: '/dashboard/progress', icon: ChartBarIcon, roles: ['student'] },
+  { name: 'Learning Paths', path: '/dashboard/learning-paths', icon: AcademicCapIcon, roles: ['student'] },
+  { name: 'Analytics', path: '/dashboard/analytics', icon: ChartBarIcon, roles: ['instructor'] },
+  { name: 'Students', path: '/dashboard/students', icon: UserGroupIcon, roles: ['instructor'] },
   { name: 'Community', path: '/community', icon: ChatBubbleLeftRightIcon, roles: ['student', 'instructor'] },
-  { name: 'Certificates', path: '/certificates', icon: DocumentCheckIcon, roles: ['student'] },
+  { name: 'Certificates', path: '/achievements/certificates', icon: DocumentCheckIcon, roles: ['student'] },
   { name: 'Profile', path: '/profile', icon: UserIcon, roles: ['student', 'instructor'] },
 ];
 
@@ -90,7 +91,7 @@ const Navbar = () => {
             <div className="flex-shrink-0 flex items-center">
               <Link to="/" className="flex items-center">
                 <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  ModernLMS
+                ModernLMS
                 </span>
               </Link>
             </div>
@@ -112,7 +113,7 @@ const Navbar = () => {
                       isActive(item.path) ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
                     }`} />
                     <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 transform -translate-x-1 group-hover:translate-x-0 transition-all duration-300">
-                      {item.name}
+                    {item.name}
                     </span>
                   </span>
                   {isActive(item.path) && (
@@ -161,18 +162,18 @@ const Navbar = () => {
                         </h3>
                       </div>
                       <div className="max-h-60 overflow-y-auto">
-                        {mockNotifications.map((notification) => (
-                          <div
-                            key={notification.id}
+                      {mockNotifications.map((notification) => (
+                        <div
+                          key={notification.id}
                             className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
-                          >
+                        >
                             <div className="flex justify-between">
-                              <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                          <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                               <p className="text-xs text-gray-500">{notification.time}</p>
                             </div>
                             <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                          </div>
-                        ))}
+                        </div>
+                      ))}
                       </div>
                       <div className="px-4 py-2 bg-gray-50">
                         <Link to="/notifications" className="text-sm font-medium text-blue-600 hover:text-blue-500 flex justify-center">
@@ -195,16 +196,16 @@ const Navbar = () => {
                   <p className="text-sm font-medium text-gray-800">{user?.name || 'User'}</p>
                   <p className="text-xs text-gray-500 capitalize">{user?.role || 'Student'}</p>
                 </div>
-              </div>
+            </div>
 
-              {/* Logout Button */}
-              <button
-                onClick={handleLogout}
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
                 className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors duration-200"
-              >
+            >
                 <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-1" />
                 <span className="hidden md:inline">Logout</span>
-              </button>
+            </button>
             </div>
 
             {/* Mobile menu button */}
@@ -228,7 +229,7 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       <AnimatePresence>
-        {isMobileMenuOpen && (
+      {isMobileMenuOpen && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -237,17 +238,17 @@ const Navbar = () => {
             className="sm:hidden overflow-hidden"
           >
             <div className="pt-2 pb-3 space-y-1 bg-gray-50 px-2">
-              {filteredNavigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
+            {filteredNavigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.path}
                   className={`flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors ${
-                    isActive(item.path)
+                  isActive(item.path)
                       ? 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
                   <item.icon className="h-5 w-5 mr-3" />
                   {item.name}
                 </Link>
@@ -263,17 +264,17 @@ const Navbar = () => {
                     <p className="text-sm text-gray-500 capitalize">{user?.role || 'Student'}</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleLogout}
+            <button
+              onClick={handleLogout}
                   className="mt-2 w-full flex items-center justify-center px-3 py-2 text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
-                >
+            >
                   <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-2" />
                   Sign out
-                </button>
-              </div>
-            </div>
+            </button>
+          </div>
+        </div>
           </motion.div>
-        )}
+      )}
       </AnimatePresence>
     </nav>
   );

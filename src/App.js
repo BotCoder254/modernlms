@@ -14,6 +14,7 @@ import MyCourses from './pages/dashboard/MyCourses';
 import Progress from './pages/dashboard/Progress';
 import Analytics from './pages/dashboard/Analytics';
 import Students from './pages/dashboard/Students';
+import LearningPaths from './pages/dashboard/LearningPaths';
 import CourseList from './pages/courses/CourseList';
 import CourseDetail from './pages/courses/CourseDetail';
 import CreateCourse from './pages/courses/CreateCourse';
@@ -82,7 +83,7 @@ const App = () => {
                 }
               />
               <Route
-                path="/my-courses"
+                path="/dashboard/my-courses"
                 element={
                   <ProtectedRoute>
                     <Navbar />
@@ -91,7 +92,7 @@ const App = () => {
                 }
               />
               <Route
-                path="/progress"
+                path="/dashboard/progress"
                 element={
                   <ProtectedRoute roles={['student']}>
                     <Navbar />
@@ -100,7 +101,16 @@ const App = () => {
                 }
               />
               <Route
-                path="/analytics"
+                path="/dashboard/learning-paths"
+                element={
+                  <ProtectedRoute roles={['student']}>
+                    <Navbar />
+                    <LearningPaths />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/analytics"
                 element={
                   <ProtectedRoute roles={['instructor']}>
                     <Navbar />
@@ -109,7 +119,7 @@ const App = () => {
                 }
               />
               <Route
-                path="/students"
+                path="/dashboard/students"
                 element={
                   <ProtectedRoute roles={['instructor']}>
                     <Navbar />
@@ -158,7 +168,7 @@ const App = () => {
 
               {/* Achievement Routes */}
               <Route
-                path="/certificates"
+                path="/achievements/certificates"
                 element={
                   <ProtectedRoute roles={['student']}>
                     <Navbar />

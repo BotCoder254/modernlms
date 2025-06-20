@@ -64,7 +64,7 @@ const Discussion = () => {
       try {
         // Use a Map to ensure we don't have duplicate IDs
         const messagesMap = new Map();
-        snapshot.forEach((doc) => {
+      snapshot.forEach((doc) => {
           const data = doc.data();
           // Create a truly unique key by combining id with timestamp
           const uniqueId = `${doc.id}-${data.createdAt ? data.createdAt.seconds : Date.now()}`;
@@ -78,7 +78,7 @@ const Discussion = () => {
         });
         // Convert Map back to array
         const newMessages = Array.from(messagesMap.values());
-        setMessages(newMessages);
+      setMessages(newMessages);
       } catch (error) {
         console.error("Error processing messages:", error);
       }
@@ -121,7 +121,7 @@ const Discussion = () => {
   const likeMessageMutation = useMutation({
     mutationFn: async ({ messageId, liked }) => {
       try {
-        const messageRef = doc(db, 'discussions', messageId);
+      const messageRef = doc(db, 'discussions', messageId);
         const message = messages.find(m => m.id === messageId);
         if (!message) return;
         
@@ -130,8 +130,8 @@ const Discussion = () => {
           ? [...likedBy, user.uid]
           : likedBy.filter(id => id !== user.uid);
           
-        await updateDoc(messageRef, {
-          likes: increment(liked ? 1 : -1),
+      await updateDoc(messageRef, {
+        likes: increment(liked ? 1 : -1),
           likedBy: updatedLikedBy,
         });
       } catch (error) {
