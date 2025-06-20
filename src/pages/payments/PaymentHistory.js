@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, getDoc, doc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { format } from 'date-fns';
@@ -88,17 +88,24 @@ const PaymentHistory = () => {
                       <p className="text-sm text-gray-500">
                         {format(payment.date, 'PPP')}
                       </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {payment.reference && `Ref: ${payment.reference}`}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-medium text-gray-900">
-                      ${payment.amount}
+                      {payment.currency === "USD" ? "$" : ""}
+                      {payment.amount}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-600">
+                      {payment.paymentMethod || "Paystack"}
+                    </p>
+                    <p className="text-sm">
                       {payment.status === 'succeeded' ? (
-                        <span className="text-green-600">Paid</span>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
                       ) : (
-                        <span className="text-red-600">Failed</span>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Failed</span>
                       )}
                     </p>
                   </div>

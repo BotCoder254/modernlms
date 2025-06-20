@@ -13,7 +13,10 @@ import {
   XMarkIcon,
   MagnifyingGlassIcon,
   CheckCircleIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  UserIcon,
+  TagIcon,
+  AdjustmentsVerticalIcon
 } from '@heroicons/react/24/outline';
 
 const categories = ['Programming', 'Design', 'Business', 'Marketing', 'Music', 'Photography'];
@@ -25,15 +28,24 @@ const priceRanges = [
   { label: '$50 - $100', min: 50, max: 100 },
   { label: 'Over $100', min: 100, max: Infinity },
 ];
+const ratingOptions = [
+  { label: 'All Ratings', min: 0 },
+  { label: '4+ Stars', min: 4 },
+  { label: '3+ Stars', min: 3 },
+  { label: '2+ Stars', min: 2 },
+];
 
 const CourseList = () => {
   const [filters, setFilters] = useState({
     category: '',
     level: '',
     priceRange: priceRanges[0],
+    ratingFilter: ratingOptions[0],
+    instructor: '',
     search: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [instructors, setInstructors] = useState([]);
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['courses', filters],
@@ -59,16 +71,39 @@ const CourseList = () => {
       
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        if (
-          data.price >= filters.priceRange.min &&
-          data.price <= filters.priceRange.max &&
-          (!filters.search ||
-            data.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-            data.description.toLowerCase().includes(filters.search.toLowerCase()))
-        ) {
+        // Filter by price range
+        const effectivePrice = data.hasDiscount ? data.discountPrice : data.price;
+        const matchesPrice = 
+          effectivePrice >= filters.priceRange.min &&
+          effectivePrice <= filters.priceRange.max;
+
+        // Filter by instructor if selected
+        const matchesInstructor = 
+          !filters.instructor || 
+          data.instructorId === filters.instructor ||
+          data.instructorName === filters.instructor;
+          
+        // Filter by rating
+        const rating = ((data.rating || 0) / (data.reviewCount || 1));
+        const matchesRating = rating >= filters.ratingFilter.min;
+        
+        // Filter by search text
+        const matchesSearch = 
+          !filters.search ||
+          data.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+          data.description.toLowerCase().includes(filters.search.toLowerCase()) ||
+          (data.instructorName && data.instructorName.toLowerCase().includes(filters.search.toLowerCase()));
+        
+        if (matchesPrice && matchesInstructor && matchesRating && matchesSearch) {
           results.push({ id: doc.id, ...data });
         }
       });
+      
+      // Collect unique instructors for the filter dropdown
+      const uniqueInstructors = [...new Set(results.map(course => course.instructorName))]
+        .filter(Boolean)
+        .sort();
+      setInstructors(uniqueInstructors);
       
       return results;
     },
@@ -76,6 +111,17 @@ const CourseList = () => {
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      category: '',
+      level: '',
+      priceRange: priceRanges[0],
+      ratingFilter: ratingOptions[0],
+      instructor: '',
+      search: '',
+    });
   };
 
   return (
@@ -93,6 +139,16 @@ const CourseList = () => {
             <p className="mt-2 text-gray-600">Discover courses to enhance your skills and advance your career</p>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-3">
+            <div className="relative">
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                placeholder="Search courses..."
+                className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              />
+              <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
@@ -100,9 +156,9 @@ const CourseList = () => {
               {showFilters ? (
                 <XMarkIcon className="h-5 w-5 mr-2" />
               ) : (
-                <FunnelIcon className="h-5 w-5 mr-2" />
+                <AdjustmentsVerticalIcon className="h-5 w-5 mr-2" />
               )}
-              {showFilters ? 'Hide Filters' : 'Show Filters'}
+              {showFilters ? 'Hide Filters' : 'Filters'}
             </button>
           </div>
         </motion.div>
@@ -114,25 +170,13 @@ const CourseList = () => {
           className="overflow-hidden mb-8"
         >
           <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Search */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                    placeholder="Search courses..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Category Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <TagIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Category
+                </label>
                 <select
                   value={filters.category}
                   onChange={(e) => handleFilterChange('category', e.target.value)}
@@ -149,7 +193,10 @@ const CourseList = () => {
 
               {/* Level Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <AcademicCapIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Level
+                </label>
                 <select
                   value={filters.level}
                   onChange={(e) => handleFilterChange('level', e.target.value)}
@@ -166,7 +213,10 @@ const CourseList = () => {
 
               {/* Price Range Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <CurrencyDollarIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Price Range
+                </label>
                 <select
                   value={filters.priceRange.label}
                   onChange={(e) => {
@@ -181,6 +231,59 @@ const CourseList = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Instructor Filter */}
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <UserIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Instructor
+                </label>
+                <select
+                  value={filters.instructor}
+                  onChange={(e) => handleFilterChange('instructor', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Instructors</option>
+                  {instructors.map((instructor) => (
+                    <option key={instructor} value={instructor}>
+                      {instructor}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Rating Filter */}
+              <div>
+                <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                  <StarIcon className="h-5 w-5 mr-2 text-gray-500" />
+                  Rating
+                </label>
+                <select
+                  value={filters.ratingFilter.label}
+                  onChange={(e) => {
+                    const option = ratingOptions.find((r) => r.label === e.target.value);
+                    handleFilterChange('ratingFilter', option);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {ratingOptions.map((option) => (
+                    <option key={option.label} value={option.label}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Clear Filters Button */}
+              <div className="flex items-end">
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center justify-center w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <XMarkIcon className="h-5 w-5 mr-2" />
+                  Clear All Filters
+                </button>
               </div>
             </div>
           </div>
@@ -217,12 +320,20 @@ const CourseList = () => {
                       className="w-full h-48 object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    <div className="absolute top-3 right-3">
-                      {course.price === 0 ? (
+                    <div className="absolute top-3 right-3 flex space-x-2">
+                      {course.isFree || course.price === 0 ? (
                         <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">Free</span>
                       ) : course.hasDiscount ? (
-                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">Sale</span>
+                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                          -{Math.round((1 - course.discountPrice / course.price) * 100)}%
+                        </span>
                       ) : null}
+                      
+                      {course.category && (
+                        <span className="bg-blue-600/80 text-white text-xs px-2 py-1 rounded-full">
+                          {course.category}
+                        </span>
+                      )}
                     </div>
                     <div className="absolute bottom-0 left-0 p-4">
                       <div className="flex items-center text-white mb-1">
@@ -243,8 +354,8 @@ const CourseList = () => {
                         {course.level}
                       </div>
                       <div className="flex items-center text-gray-600">
-                        <ClockIcon className="h-5 w-5 mr-1" />
-                        {course.duration || (course.lessons?.length || 0) + ' lessons'}
+                        <UserIcon className="h-5 w-5 mr-1" />
+                        <span className="truncate max-w-[100px]">{course.instructorName}</span>
                       </div>
                     </div>
                     
@@ -257,7 +368,7 @@ const CourseList = () => {
                           </div>
                         ) : (
                           <span className="text-blue-600">
-                            {course.price === 0 ? 'Free' : `$${course.price}`}
+                            {course.isFree || course.price === 0 ? 'Free' : `$${course.price}`}
                           </span>
                         )}
                       </div>
@@ -285,12 +396,7 @@ const CourseList = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-2 mt-4">No courses found</h3>
             <p className="text-gray-600 mb-6">Try adjusting your filters to find more courses</p>
             <button
-              onClick={() => setFilters({
-                category: '',
-                level: '',
-                priceRange: priceRanges[0],
-                search: '',
-              })}
+              onClick={clearFilters}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
               <XMarkIcon className="h-5 w-5 mr-2" />

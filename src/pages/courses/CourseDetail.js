@@ -29,14 +29,15 @@ import {
   UserGroupIcon,
   AcademicCapIcon,
   BookmarkIcon as BookmarkOutline,
+  BookOpenIcon,
   ChatBubbleLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  DocumentIcon,
+  UserIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
-import { Elements } from '@stripe/react-stripe-js';
-import stripePromise from '../../utils/stripe';
 import PaymentForm from '../../components/PaymentForm';
 import { trackUserEngagement, trackLessonProgress, trackCourseEngagement } from '../../utils/analytics';
 
@@ -626,40 +627,119 @@ const CourseDetail = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Course Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{course.title}</h1>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-6">
-            <div className="flex items-center">
-              <AcademicCapIcon className="h-5 w-5 mr-1" />
-              {course.level}
-            </div>
-            <div className="flex items-center">
-              <ClockIcon className="h-5 w-5 mr-1" />
-              {totalLessons} lessons
-            </div>
-            <div className="flex items-center">
-              <UserGroupIcon className="h-5 w-5 mr-1" />
-              {course.enrollmentCount} students
-            </div>
-            <div className="flex items-center">
-              <StarIcon className="h-5 w-5 mr-1 text-yellow-400" />
-              {(course.rating / course.reviewCount || 0).toFixed(1)} ({course.reviewCount} reviews)
+        <div className="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+          <div className="relative">
+            <img 
+              src={course.thumbnail} 
+              alt={course.title} 
+              className="w-full h-64 object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
+            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+              <div className="flex items-center space-x-3 mb-2">
+                {course.isFree || course.price === 0 ? (
+                  <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">Free</span>
+                ) : course.hasDiscount ? (
+                  <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                    -{Math.round((1 - course.discountPrice / course.price) * 100)}% OFF
+                  </span>
+                ) : null}
+                <span className="bg-blue-600/90 text-white text-xs px-2 py-1 rounded-full">
+                  {course.category}
+                </span>
+                <span className="bg-gray-700/90 text-white text-xs px-2 py-1 rounded-full">
+                  {course.level}
+                </span>
+              </div>
+              <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
+              <div className="flex items-center space-x-4 text-sm">
+                <div className="flex items-center">
+                  <StarIcon className="h-4 w-4 text-yellow-400 mr-1" />
+                  {(course.rating / course.reviewCount || 0).toFixed(1)} ({course.reviewCount} reviews)
+                </div>
+                <div className="flex items-center">
+                  <UserGroupIcon className="h-4 w-4 mr-1" />
+                  {course.enrollmentCount} students
+                </div>
+                <div className="flex items-center">
+                  <ClockIcon className="h-4 w-4 mr-1" />
+                  {totalLessons} lessons
+                </div>
+              </div>
             </div>
           </div>
-          <p className="text-gray-600 mb-6">{course.description}</p>
-          {!isEnrolled && (
-            <button
-              onClick={handleEnrollClick}
-              disabled={enrollMutation.isLoading}
-              className="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {enrollMutation.isLoading
-                ? 'Processing...'
-                : course.price > 0
-                ? `Enroll for $${course.discountPrice || course.price}`
-                : 'Enroll for Free'}
-            </button>
-          )}
+          
+          <div className="p-6">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-semibold text-lg">
+                {course.instructorName ? course.instructorName.charAt(0).toUpperCase() : 'I'}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Instructor</p>
+                <p className="text-lg font-medium">{course.instructorName}</p>
+              </div>
+            </div>
+            
+            <div className="border-t border-b border-gray-100 py-6 my-4">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">About This Course</h2>
+              <p className="text-gray-600">{course.description}</p>
+              
+              {/* Course outcomes */}
+              {course.outcomes && course.outcomes.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">What you'll learn</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {course.outcomes.map((outcome, index) => (
+                      <div key={index} className="flex items-start">
+                        <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-600">{outcome}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Course requirements */}
+              {course.requirements && course.requirements.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Requirements</h3>
+                  <ul className="list-disc list-inside space-y-1 text-gray-600">
+                    {course.requirements.map((requirement, index) => (
+                      <li key={index}>{requirement}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            
+            {/* Enrollment CTA */}
+            {!isEnrolled && (
+              <div className="flex flex-col md:flex-row items-center justify-between mt-4">
+                <div className="mb-4 md:mb-0">
+                  <p className="text-sm text-gray-500 mb-1">Price</p>
+                  <div className="flex items-center">
+                    {course.hasDiscount && (
+                      <span className="text-gray-400 line-through text-lg mr-2">${course.price}</span>
+                    )}
+                    <span className="text-2xl font-bold text-blue-600">
+                      {course.isFree || course.price === 0 ? 'Free' : `$${course.discountPrice || course.price}`}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleEnrollClick}
+                  disabled={enrollMutation.isLoading}
+                  className="w-full md:w-auto px-8 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  {enrollMutation.isLoading
+                    ? 'Processing...'
+                    : course.price > 0
+                    ? `Enroll Now - $${course.discountPrice || course.price}`
+                    : 'Enroll For Free'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -813,35 +893,79 @@ const CourseDetail = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-                <div className="text-center">
-                  <LockClosedIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    This lesson is locked
+              <div className="bg-white rounded-xl shadow-md p-8 mb-8 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-indigo-600/5"></div>
+                <div className="relative text-center">
+                  <div className="bg-gray-100 p-4 rounded-full h-24 w-24 flex items-center justify-center mx-auto mb-6">
+                    <LockClosedIcon className="h-12 w-12 text-blue-600" />
+                  </div>
+                  
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                    Premium Content
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    Enroll in this course to access all lessons and materials.
+                  
+                  <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                    This lesson is part of the full course. Enroll now to unlock all lessons, assignments, and course materials.
                   </p>
-                  <button
-                    onClick={handleEnrollClick}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    Enroll Now
-                  </button>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center space-x-6 mb-4">
+                      <div className="flex items-center text-gray-800">
+                        <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                        <span>{totalLessons} Lessons</span>
+                      </div>
+                      <div className="flex items-center text-gray-800">
+                        <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                        <span>Certificate</span>
+                      </div>
+                      <div className="flex items-center text-gray-800">
+                        <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+                        <span>Lifetime Access</span>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={handleEnrollClick}
+                      className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-md text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                    >
+                      {course.price > 0 ? 
+                        `Enroll Now - $${course.discountPrice || course.price}` : 
+                        'Enroll For Free'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
 
             {/* Course Content */}
-            <div className="bg-white rounded-lg shadow-sm">
-              <div className="p-4 border-b">
-                <h2 className="text-xl font-semibold text-gray-900">Course Content</h2>
-                {isEnrolled && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    {completedLessons} of {totalLessons} lessons completed ({completionPercentage}%)
-                  </p>
-                )}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
+                <h2 className="text-xl font-semibold text-white flex items-center">
+                  <BookOpenIcon className="h-6 w-6 mr-2" />
+                  Course Content
+                  {isEnrolled && (
+                    <span className="ml-auto text-sm text-white/90 bg-white/20 px-3 py-1 rounded-full">
+                      {completedLessons} of {totalLessons} lessons complete
+                    </span>
+                  )}
+                </h2>
               </div>
+              
+              {isEnrolled && (
+                <div className="px-4 py-3 bg-blue-50">
+                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <span className="font-medium">{completionPercentage}% Complete</span>
+                    <span>{completedLessons}/{totalLessons} Lessons</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${completionPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="divide-y">
                 {course.lessons.map((lesson, index) => (
                   <motion.div
@@ -849,13 +973,17 @@ const CourseDetail = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: index * 0.1 }}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer ${
-                      selectedLesson?.id === lesson.id ? 'bg-blue-50' : ''
+                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors duration-200 ${
+                      selectedLesson?.id === lesson.id ? 'bg-blue-50 border-l-4 border-blue-600' : ''
                     }`}
                     onClick={() => isEnrolled && setSelectedLesson(lesson)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
+                        <span className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 text-gray-700 text-sm font-medium mr-3">
+                          {index + 1}
+                        </span>
+                        
                         {isEnrolled ? (
                           progress[lesson.id] ? (
                             <CheckCircleIcon className="h-5 w-5 text-green-500 mr-3" />
@@ -865,13 +993,30 @@ const CourseDetail = () => {
                         ) : (
                           <LockClosedIcon className="h-5 w-5 text-gray-400 mr-3" />
                         )}
+                        
                         <div>
                           <h3 className="text-sm font-medium text-gray-900">
-                            {index + 1}. {lesson.title}
+                            {lesson.title}
                           </h3>
-                          <p className="text-sm text-gray-500">{lesson.duration}</p>
+                          <div className="flex items-center text-xs text-gray-500 mt-1">
+                            <ClockIcon className="h-3 w-3 mr-1" />
+                            <span>{lesson.duration || "10 min"}</span>
+                            
+                            {lesson.studyMaterials && lesson.studyMaterials.length > 0 && (
+                              <span className="flex items-center ml-3">
+                                <DocumentIcon className="h-3 w-3 mr-1" />
+                                {lesson.studyMaterials.length} {lesson.studyMaterials.length === 1 ? 'material' : 'materials'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      
+                      {lesson.previewEnabled && !isEnrolled && (
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                          Preview
+                        </span>
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -880,37 +1025,80 @@ const CourseDetail = () => {
 
             {/* Review Section */}
             {isEnrolled && (
-              <div className="bg-white rounded-lg shadow-sm mt-8 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Leave a Review</h2>
-                <div className="flex items-center mb-4">
-                  {[1, 2, 3, 4, 5].map((star) => (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden mt-8">
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
+                  <h2 className="text-xl font-semibold text-white flex items-center">
+                    <StarIcon className="h-6 w-6 mr-2" />
+                    Course Review
+                  </h2>
+                </div>
+                
+                <div className="p-6">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Share Your Experience</h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Your feedback helps other students make informed decisions and helps the instructor improve the course.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                    <label htmlFor="rating" className="block text-sm font-medium text-gray-700 mb-3">Rating</label>
+                    <div className="flex items-center" id="rating">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setRating(star)}
+                          className="p-1 focus:outline-none transition-transform hover:scale-110"
+                        >
+                          {star <= rating ? (
+                            <StarIconSolid className="h-8 w-8 text-yellow-400" />
+                          ) : (
+                            <StarIcon className="h-8 w-8 text-gray-300" />
+                          )}
+                        </button>
+                      ))}
+                      <span className="ml-3 text-gray-700 font-medium">
+                        {rating === 1 && "Poor"}
+                        {rating === 2 && "Fair"}
+                        {rating === 3 && "Average"}
+                        {rating === 4 && "Good"}
+                        {rating === 5 && "Excellent"}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label htmlFor="review-text" className="block text-sm font-medium text-gray-700 mb-2">Your Review</label>
+                    <textarea
+                      id="review-text"
+                      value={review}
+                      onChange={(e) => setReview(e.target.value)}
+                      placeholder="Share details about your experience taking this course..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      rows={5}
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end">
                     <button
-                      key={star}
-                      onClick={() => setRating(star)}
-                      className="p-1 focus:outline-none"
+                      onClick={() => submitReviewMutation.mutate()}
+                      disabled={!rating || !review || submitReviewMutation.isLoading}
+                      className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {star <= rating ? (
-                        <StarIconSolid className="h-6 w-6 text-yellow-400" />
+                      {submitReviewMutation.isLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Submitting...
+                        </>
                       ) : (
-                        <StarIcon className="h-6 w-6 text-gray-300" />
+                        <>Submit Review</>
                       )}
                     </button>
-                  ))}
+                  </div>
                 </div>
-                <textarea
-                  value={review}
-                  onChange={(e) => setReview(e.target.value)}
-                  placeholder="Write your review..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  rows={4}
-                />
-                <button
-                  onClick={() => submitReviewMutation.mutate()}
-                  disabled={!rating || !review || submitReviewMutation.isLoading}
-                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitReviewMutation.isLoading ? 'Submitting...' : 'Submit Review'}
-                </button>
               </div>
             )}
           </div>
@@ -958,37 +1146,67 @@ const CourseDetail = () => {
 
         {/* Payment Modal */}
         {showPaymentForm && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Complete Purchase
-                </h3>
-                <button
-                  onClick={() => setShowPaymentForm(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <span className="sr-only">Close</span>
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
+          <div className="fixed inset-0 z-50 bg-gray-800 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-xl shadow-xl overflow-hidden max-w-md w-full"
+            >
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold">
+                    Complete Your Enrollment
+                  </h3>
+                  <button
+                    onClick={() => setShowPaymentForm(false)}
+                    className="text-white/80 hover:text-white focus:outline-none transition-colors"
+                  >
+                    <span className="sr-only">Close</span>
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
               </div>
               
-              <div className="mb-4">
-                <p className="text-sm text-gray-500">
-                  Course: {course.title}
-                </p>
-                <p className="text-lg font-medium text-gray-900">
-                  Price: ${course.discountPrice || course.price}
-                </p>
-              </div>
+              <div className="p-6">
+                <div className="flex items-start space-x-4 mb-6 pb-6 border-b border-gray-100">
+                  <img 
+                    src={course.thumbnail}
+                    alt={course.title}
+                    className="h-20 w-20 object-cover rounded-md flex-shrink-0"
+                  />
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-1">
+                      {course.title}
+                    </h4>
+                    <div className="flex items-center text-sm text-gray-500 mb-2">
+                      <UserIcon className="h-4 w-4 mr-1" />
+                      {course.instructorName}
+                    </div>
+                    <div className="flex items-center">
+                      {course.hasDiscount && (
+                        <span className="text-gray-400 line-through text-sm mr-2">${course.price}</span>
+                      )}
+                      <span className="text-xl font-bold text-blue-600">
+                        ${course.discountPrice || course.price}
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-              <Elements stripe={stripePromise}>
                 <PaymentForm
-                  course={course}
+                  course={{
+                    ...course,
+                    price: course.discountPrice || course.price
+                  }}
                   onSuccess={handlePaymentSuccess}
                 />
-              </Elements>
-            </div>
+                
+                <div className="mt-4 text-xs text-gray-500 text-center">
+                  <p>By completing this purchase you agree to our <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.</p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
       </div>
