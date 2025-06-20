@@ -11,6 +11,9 @@ import {
   StarIcon,
   FunnelIcon,
   XMarkIcon,
+  MagnifyingGlassIcon,
+  CheckCircleIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline';
 
 const categories = ['Programming', 'Design', 'Business', 'Marketing', 'Music', 'Photography'];
@@ -79,23 +82,30 @@ const CourseList = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col md:flex-row md:items-center md:justify-between mb-8"
+        >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Browse Courses</h1>
-            <p className="mt-2 text-gray-600">Discover courses to enhance your skills</p>
+            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Browse Courses</h1>
+            <p className="mt-2 text-gray-600">Discover courses to enhance your skills and advance your career</p>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            {showFilters ? (
-              <XMarkIcon className="h-5 w-5 mr-2" />
-            ) : (
-              <FunnelIcon className="h-5 w-5 mr-2" />
-            )}
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
-          </button>
-        </div>
+          <div className="mt-4 md:mt-0 flex space-x-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              {showFilters ? (
+                <XMarkIcon className="h-5 w-5 mr-2" />
+              ) : (
+                <FunnelIcon className="h-5 w-5 mr-2" />
+              )}
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
+          </div>
+        </motion.div>
 
         {/* Filters */}
         <motion.div
@@ -103,18 +113,21 @@ const CourseList = () => {
           animate={{ height: showFilters ? 'auto' : 0 }}
           className="overflow-hidden mb-8"
         >
-          <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Search */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  placeholder="Search courses..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    placeholder="Search courses..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                </div>
               </div>
 
               {/* Category Filter */}
@@ -123,7 +136,7 @@ const CourseList = () => {
                 <select
                   value={filters.category}
                   onChange={(e) => handleFilterChange('category', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
@@ -140,7 +153,7 @@ const CourseList = () => {
                 <select
                   value={filters.level}
                   onChange={(e) => handleFilterChange('level', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">All Levels</option>
                   {levels.map((level) => (
@@ -160,7 +173,7 @@ const CourseList = () => {
                     const range = priceRanges.find((r) => r.label === e.target.value);
                     handleFilterChange('priceRange', range);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   {priceRanges.map((range) => (
                     <option key={range.label} value={range.label}>
@@ -177,8 +190,8 @@ const CourseList = () => {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm animate-pulse">
-                <div className="h-48 bg-gray-200 rounded-t-lg" />
+              <div key={i} className="bg-white rounded-xl shadow-md animate-pulse border border-gray-100">
+                <div className="h-48 bg-gray-200 rounded-t-xl" />
                 <div className="p-4">
                   <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
                   <div className="h-4 bg-gray-200 rounded w-1/2" />
@@ -188,21 +201,40 @@ const CourseList = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
+            {courses.map((course, index) => (
               <motion.div
                 key={course.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100 overflow-hidden"
               >
-                <Link to={`/courses/${course.id}`}>
-                  <img
-                    src={course.thumbnail}
-                    alt={course.title}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                  />
+                <Link to={`/courses/${course.id}`} className="block">
+                  <div className="relative">
+                    <img
+                      src={course.thumbnail}
+                      alt={course.title}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    <div className="absolute top-3 right-3">
+                      {course.price === 0 ? (
+                        <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">Free</span>
+                      ) : course.hasDiscount ? (
+                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">Sale</span>
+                      ) : null}
+                    </div>
+                    <div className="absolute bottom-0 left-0 p-4">
+                      <div className="flex items-center text-white mb-1">
+                        <StarIcon className="h-4 w-4 text-yellow-400 mr-1" />
+                        <span>{((course.rating || 0) / (course.reviewCount || 1)).toFixed(1)}</span>
+                        <span className="mx-1">•</span>
+                        <span className="text-sm">{course.reviewCount || 0} reviews</span>
+                      </div>
+                    </div>
+                  </div>
                   <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{course.title}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">{course.title}</h3>
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.description}</p>
                     
                     <div className="flex items-center justify-between text-sm">
@@ -212,20 +244,26 @@ const CourseList = () => {
                       </div>
                       <div className="flex items-center text-gray-600">
                         <ClockIcon className="h-5 w-5 mr-1" />
-                        {course.duration}
+                        {course.duration || (course.lessons?.length || 0) + ' lessons'}
                       </div>
                     </div>
                     
                     <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center">
-                        <StarIcon className="h-5 w-5 text-yellow-400" />
-                        <span className="ml-1 text-gray-600">
-                          {((course.rating || 0) / (course.reviewCount || 1)).toFixed(1)} ({course.reviewCount || 0})
-                        </span>
+                      <div className="font-medium">
+                        {course.hasDiscount ? (
+                          <div className="flex items-center">
+                            <span className="text-gray-400 line-through text-sm mr-2">${course.price}</span>
+                            <span className="text-blue-600">${course.discountPrice}</span>
+                          </div>
+                        ) : (
+                          <span className="text-blue-600">
+                            {course.price === 0 ? 'Free' : `$${course.price}`}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex items-center font-medium text-blue-600">
-                        <CurrencyDollarIcon className="h-5 w-5 mr-1" />
-                        {course.price === 0 ? 'Free' : `$${course.price}`}
+                      <div className="text-sm text-blue-600 hover:text-blue-800 flex items-center font-medium">
+                        View Details
+                        <ArrowRightIcon className="h-4 w-4 ml-1" />
                       </div>
                     </div>
                   </div>
@@ -237,14 +275,32 @@ const CourseList = () => {
 
         {/* Empty State */}
         {!isLoading && courses.length === 0 && (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
-            <p className="text-gray-600">Try adjusting your filters to find more courses</p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-center py-12 bg-white rounded-xl shadow-md border border-gray-100"
+          >
+            <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2 mt-4">No courses found</h3>
+            <p className="text-gray-600 mb-6">Try adjusting your filters to find more courses</p>
+            <button
+              onClick={() => setFilters({
+                category: '',
+                level: '',
+                priceRange: priceRanges[0],
+                search: '',
+              })}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <XMarkIcon className="h-5 w-5 mr-2" />
+              Clear Filters
+            </button>
+          </motion.div>
         )}
       </div>
     </div>
   );
 };
 
-export default CourseList; 
+export default CourseList;

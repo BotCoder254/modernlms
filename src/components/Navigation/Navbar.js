@@ -108,10 +108,12 @@ const Navbar = () => {
                   }`}
                 >
                   <span className="flex items-center">
-                    <item.icon className={`h-5 w-5 mr-1 transition-transform group-hover:scale-110 ${
+                    <item.icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${
                       isActive(item.path) ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-600'
                     }`} />
-                    <span>{item.name}</span>
+                    <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 transform -translate-x-1 group-hover:translate-x-0 transition-all duration-300">
+                      {item.name}
+                    </span>
                   </span>
                   {isActive(item.path) && (
                     <motion.div

@@ -51,13 +51,20 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow-sm rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <UserCircleIcon className="h-12 w-12 text-gray-400" />
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+            <h2 className="text-2xl font-bold text-white">Profile Settings</h2>
+            <p className="text-blue-100">Update your account preferences</p>
+          </div>
+          <div className="px-6 py-6">
+            <div className="flex items-center space-x-4 mb-8 pb-6 border-b border-gray-100">
+              <div className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold">
+                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
+              </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Profile Settings</h2>
-                <p className="text-sm text-gray-500">Update your account preferences</p>
+                <h3 className="text-xl font-semibold text-gray-900">{user?.displayName || 'User'}</h3>
+                <p className="text-sm text-gray-500 capitalize">{user?.role || 'Student'}</p>
+                <p className="text-sm text-gray-500">{user?.email}</p>
               </div>
             </div>
 
@@ -66,9 +73,9 @@ const Profile = () => {
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                   Full Name
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="mt-1 relative rounded-md shadow-sm group transition-all duration-300 hover:shadow">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <UserCircleIcon className="h-5 w-5 text-gray-400" />
+                    <UserCircleIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
                   </div>
                   <input
                     type="text"
@@ -76,7 +83,7 @@ const Profile = () => {
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md h-12 transition-all duration-300 hover:border-blue-300"
                   />
                 </div>
               </div>
@@ -85,9 +92,9 @@ const Profile = () => {
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   Email
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="mt-1 relative rounded-md shadow-sm group transition-all duration-300 hover:shadow">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <EnvelopeIcon className="h-5 w-5 text-gray-400" />
+                    <EnvelopeIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
                   </div>
                   <input
                     type="email"
@@ -95,7 +102,7 @@ const Profile = () => {
                     id="email"
                     value={formData.email}
                     disabled
-                    className="bg-gray-50 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                    className="bg-gray-50 block w-full pl-10 sm:text-sm border-gray-300 rounded-md h-12"
                   />
                 </div>
               </div>
@@ -104,9 +111,9 @@ const Profile = () => {
                 <label htmlFor="role" className="block text-sm font-medium text-gray-700">
                   Role
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="mt-1 relative rounded-md shadow-sm group transition-all duration-300 hover:shadow">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <AcademicCapIcon className="h-5 w-5 text-gray-400" />
+                    <AcademicCapIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
                   </div>
                   <input
                     type="text"
@@ -114,7 +121,7 @@ const Profile = () => {
                     id="role"
                     value={user?.role === 'instructor' ? 'Instructor' : 'Student'}
                     disabled
-                    className="bg-gray-50 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                    className="bg-gray-50 block w-full pl-10 sm:text-sm border-gray-300 rounded-md h-12"
                   />
                 </div>
               </div>
@@ -123,9 +130,9 @@ const Profile = () => {
                 <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
                   New Password
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="mt-1 relative rounded-md shadow-sm group transition-all duration-300 hover:shadow">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <KeyIcon className="h-5 w-5 text-gray-400" />
+                    <KeyIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300" />
                   </div>
                   <input
                     type="password"
@@ -133,7 +140,7 @@ const Profile = () => {
                     id="newPassword"
                     value={formData.newPassword}
                     onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
+                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md h-12 transition-all duration-300 hover:border-blue-300"
                     placeholder="Leave blank to keep current password"
                   />
                 </div>
@@ -144,13 +151,13 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={() => navigate(-1)}
-                    className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="bg-white py-3 px-5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="ml-3 inline-flex justify-center py-3 px-5 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
                     Save Changes
                   </button>
