@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -40,19 +40,19 @@ const MyCourses = () => {
               return null;
             }
 
-            // Fetch reviews for this course
+            // Fetch reviews for this course - modified to avoid index error
             const reviewsRef = collection(db, 'reviews');
             const reviewsQuery = query(
               reviewsRef,
               where('courseId', '==', enrollDoc.data().courseId),
-              orderBy('createdAt', 'desc')
+              limit(10) // Limit to the most recent 10 reviews
             );
             const reviewsSnap = await getDocs(reviewsQuery);
             const reviews = reviewsSnap.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
               createdAt: doc.data().createdAt?.toDate() || new Date()
-            }));
+            })).sort((a, b) => b.createdAt - a.createdAt); // Sort client-side instead of using orderBy
 
             // Update reviews in state
             setCourseReviews(prev => ({
@@ -97,19 +97,19 @@ const MyCourses = () => {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
         const courses = await Promise.all(snapshot.docs.map(async (courseDoc) => {
-          // Fetch reviews for this course
+          // Fetch reviews for this course - modified to avoid index error
           const reviewsRef = collection(db, 'reviews');
           const reviewsQuery = query(
             reviewsRef,
             where('courseId', '==', courseDoc.id),
-            orderBy('createdAt', 'desc')
+            limit(10) // Limit to the most recent 10 reviews
           );
           const reviewsSnap = await getDocs(reviewsQuery);
           const reviews = reviewsSnap.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             createdAt: doc.data().createdAt?.toDate() || new Date()
-          }));
+          })).sort((a, b) => b.createdAt - a.createdAt); // Sort client-side instead of using orderBy
 
           // Update reviews in state
           setCourseReviews(prev => ({

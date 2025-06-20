@@ -5,39 +5,46 @@ import { motion } from 'framer-motion';
 import ReactPlayer from 'react-player';
 import { toast } from 'react-hot-toast';
 import {
+  collection,
   doc,
   getDoc,
-  updateDoc,
-  collection,
+  getDocs,
   addDoc,
+  updateDoc,
+  deleteDoc,
   query,
   where,
-  getDocs,
+  onSnapshot,
   increment,
   serverTimestamp,
-  deleteDoc,
-  onSnapshot,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import {
-  PlayIcon,
+  BookOpenIcon,
+  AcademicCapIcon,
   LockClosedIcon,
+  PlayIcon,
+  ClockIcon,
+  PencilIcon,
   CheckCircleIcon,
   StarIcon,
-  ClockIcon,
-  UserGroupIcon,
-  AcademicCapIcon,
-  BookmarkIcon as BookmarkOutline,
-  BookOpenIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
   ChatBubbleLeftIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  ChatBubbleLeftRightIcon,
   DocumentIcon,
   UserIcon,
+  UserCircleIcon,
   XMarkIcon,
+  TrashIcon,
+  ArrowDownTrayIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  BookmarkIcon as BookmarkOutlineIcon,
 } from '@heroicons/react/24/outline';
-import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
+import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolidIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 import PaymentForm from '../../components/PaymentForm';
 import { trackUserEngagement, trackLessonProgress, trackCourseEngagement } from '../../utils/analytics';
 
@@ -60,6 +67,13 @@ const CourseDetail = () => {
   const [lastSavedTime, setLastSavedTime] = useState(0);
   const playerRef = useRef(null);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [commentPage, setCommentPage] = useState(1);
+  const [lessonPage, setLessonPage] = useState(1);
+  const [materialPage, setMaterialPage] = useState(1);
+  const [reviewPage, setReviewPage] = useState(1);
+  const itemsPerPage = 5;
+  const [reviews, setReviews] = useState([]);
+  const [progressPage, setProgressPage] = useState(1);
 
   // Fetch course data
   const { data: course, isLoading } = useQuery({
@@ -423,22 +437,32 @@ const CourseDetail = () => {
     if (!selectedLesson?.id || !courseId) return;
 
     const unsubscribe = onSnapshot(
+      query(
       collection(db, 'comments'),
+        where('lessonId', '==', selectedLesson.id),
+        where('courseId', '==', courseId)
+      ),
       (snapshot) => {
         try {
-          const commentData = snapshot.docs
-            .map(doc => ({
+          // Use a Map to ensure we don't have duplicate IDs
+          const commentsMap = new Map();
+          snapshot.docs.forEach((doc) => {
+            const data = doc.data();
+            // Create a truly unique key by combining id with timestamp
+            const uniqueId = `${doc.id}-${data.createdAt ? data.createdAt.seconds : Date.now()}`;
+            commentsMap.set(uniqueId, { 
               id: doc.id,
-              ...doc.data(),
-              createdAt: doc.data().createdAt?.toDate() || new Date()
-            }))
-            .filter(comment => 
-              comment.lessonId === selectedLesson.id && 
-              comment.courseId === courseId
-            )
+              ...data,
+              uniqueId,  // Store the unique ID
+              createdAt: data.createdAt?.toDate() || new Date()
+            });
+          });
+          
+          // Convert Map back to array and sort
+          const commentsList = Array.from(commentsMap.values())
             .sort((a, b) => b.createdAt - a.createdAt);
 
-          setComments(commentData);
+          setComments(commentsList);
         } catch (error) {
           console.error('Error processing comments:', error);
         }
@@ -594,6 +618,164 @@ const CourseDetail = () => {
     trackCourseView();
   }, [user?.uid, courseId]);
 
+  // First, add a function to handle deleting comments
+  const handleDeleteComment = async (commentId) => {
+    if (!commentId || !user?.uid) {
+      toast.error('Cannot delete comment');
+      return;
+    }
+
+    try {
+      // Find the comment to check ownership
+      const comment = comments.find(c => c.id === commentId);
+      if (!comment) {
+        toast.error('Comment not found');
+        return;
+      }
+
+      // Only allow users to delete their own comments, or instructors to delete any comment
+      const isInstructor = user.role === 'instructor' && course.instructorId === user.uid;
+      if (comment.userId !== user.uid && !isInstructor) {
+        toast.error('You can only delete your own comments');
+        return;
+      }
+
+      // Delete from Firestore
+      await deleteDoc(doc(db, 'comments', commentId));
+
+      // Update local state optimistically
+      setComments(prev => prev.filter(c => c.id !== commentId));
+
+      // Update course engagement
+      await updateDoc(doc(db, 'courses', courseId), {
+        commentCount: increment(-1)
+      });
+
+      toast.success('Comment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Failed to delete comment');
+    }
+  };
+
+  // Calculate pagination for comments
+  const paginateArray = (items, page, perPage) => {
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return items.slice(startIndex, endIndex);
+  };
+
+  // Helper function for generating unique keys
+  const generateUniqueKey = (prefix, id, index) => {
+    return `${prefix}-${id}-${index}`;
+  };
+
+  // Pagination component
+  const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+    return (
+      <div className="flex items-center justify-center mt-4">
+        <nav className="flex items-center space-x-1" aria-label="Pagination">
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className={`px-2 py-1 rounded-md ${
+              currentPage === 1
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+
+          {[...Array(totalPages)].map((_, index) => {
+            const pageNumber = index + 1;
+            // Show first page, last page, and pages around current page
+            if (
+              pageNumber === 1 ||
+              pageNumber === totalPages ||
+              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+            ) {
+              return (
+                <button
+                  key={`page-${pageNumber}`}
+                  onClick={() => onPageChange(pageNumber)}
+                  className={`px-3 py-1 rounded-md ${
+                    currentPage === pageNumber
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              );
+            } 
+            // Show ellipsis for skipped pages
+            else if (
+              (pageNumber === 2 && currentPage > 3) ||
+              (pageNumber === totalPages - 1 && currentPage < totalPages - 2)
+            ) {
+              return <span key={`ellipsis-${pageNumber}`}>...</span>;
+            }
+            return null;
+          })}
+
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className={`px-2 py-1 rounded-md ${
+              currentPage === totalPages
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronRightIcon className="h-5 w-5" />
+          </button>
+        </nav>
+      </div>
+    );
+  };
+
+  // Add fetchReviews function
+  const fetchReviews = async () => {
+    if (!courseId) return;
+    
+    try {
+      const reviewsSnapshot = await getDocs(
+        query(
+          collection(db, 'reviews'),
+          where('courseId', '==', courseId)
+        )
+      );
+      
+      // Use a Map to ensure unique IDs
+      const reviewsMap = new Map();
+      reviewsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        reviewsMap.set(doc.id, {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date()
+        });
+      });
+      
+      // Convert Map to array and sort by date
+      const reviewsList = Array.from(reviewsMap.values())
+        .sort((a, b) => b.createdAt - a.createdAt);
+        
+      setReviews(reviewsList);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      toast.error('Failed to load reviews');
+    }
+  };
+
+  // Call fetchReviews in useEffect
+  useEffect(() => {
+    if (courseId) {
+      fetchReviews();
+    }
+  }, [courseId]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -648,9 +830,9 @@ const CourseDetail = () => {
                   {course.category}
                 </span>
                 <span className="bg-gray-700/90 text-white text-xs px-2 py-1 rounded-full">
-                  {course.level}
+              {course.level}
                 </span>
-              </div>
+            </div>
               <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
               <div className="flex items-center space-x-4 text-sm">
                 <div className="flex items-center">
@@ -713,7 +895,7 @@ const CourseDetail = () => {
             </div>
             
             {/* Enrollment CTA */}
-            {!isEnrolled && (
+          {!isEnrolled && (
               <div className="flex flex-col md:flex-row items-center justify-between mt-4">
                 <div className="mb-4 md:mb-0">
                   <p className="text-sm text-gray-500 mb-1">Price</p>
@@ -726,19 +908,19 @@ const CourseDetail = () => {
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={handleEnrollClick}
-                  disabled={enrollMutation.isLoading}
+            <button
+              onClick={handleEnrollClick}
+              disabled={enrollMutation.isLoading}
                   className="w-full md:w-auto px-8 py-3 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                >
-                  {enrollMutation.isLoading
-                    ? 'Processing...'
-                    : course.price > 0
+            >
+              {enrollMutation.isLoading
+                ? 'Processing...'
+                : course.price > 0
                     ? `Enroll Now - $${course.discountPrice || course.price}`
                     : 'Enroll For Free'}
-                </button>
+            </button>
               </div>
-            )}
+          )}
           </div>
         </div>
 
@@ -779,9 +961,9 @@ const CourseDetail = () => {
                       className="p-2 bg-white rounded-full shadow hover:bg-gray-100"
                     >
                       {bookmarks[selectedLesson?.id] ? (
-                        <BookmarkSolid className="h-5 w-5 text-blue-600" />
+                        <BookmarkSolidIcon className="h-5 w-5 text-blue-600" />
                       ) : (
-                        <BookmarkOutline className="h-5 w-5 text-gray-600" />
+                        <BookmarkOutlineIcon className="h-5 w-5 text-gray-600" />
                       )}
                     </button>
                   </div>
@@ -824,9 +1006,9 @@ const CourseDetail = () => {
                   <div className="mb-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Chapters</h3>
                     <div className="space-y-2">
-                      {course.lessons.map((lesson, index) => (
+                      {paginateArray(course.lessons, lessonPage, itemsPerPage).map((lesson, index) => (
                         <button
-                          key={lesson.id}
+                          key={`lesson-${lesson.id}-${index}`}
                           onClick={() => handleLessonSelect(lesson)}
                           className={`w-full text-left px-4 py-2 rounded-lg flex items-center justify-between ${
                             selectedLesson.id === lesson.id
@@ -853,6 +1035,17 @@ const CourseDetail = () => {
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Discussion</h3>
                     
                     <div className="flex space-x-3 mb-6">
+                      <div className="flex-shrink-0">
+                        {user?.photoURL ? (
+                          <img 
+                            src={user.photoURL} 
+                            alt={user.displayName || 'User'} 
+                            className="h-8 w-8 rounded-full"
+                          />
+                        ) : (
+                          <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                        )}
+                      </div>
                       <div className="flex-1">
                         <textarea
                           value={newComment}
@@ -875,19 +1068,61 @@ const CourseDetail = () => {
                     </div>
                     
                     <div className="space-y-4">
-                      {comments.map((comment) => (
-                        <div key={comment.id} className="flex space-x-3">
+                      {paginateArray(comments, commentPage, itemsPerPage).map((comment, index) => (
+                        <div key={generateUniqueKey('comment', comment.id, index)} className="flex space-x-3">
+                          <div className="flex-shrink-0">
+                            {comment.userAvatar ? (
+                              <img 
+                                src={comment.userAvatar} 
+                                alt={comment.userName || 'User'} 
+                                className="h-8 w-8 rounded-full"
+                              />
+                            ) : (
+                              <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                            )}
+                          </div>
                           <div className="flex-1 bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium text-gray-900">{comment.userName}</span>
-                              <span className="text-sm text-gray-500">
-                                {new Date(comment.timestamp * 1000).toISOString().substr(11, 8)}
+                              <span className="font-medium text-gray-900">
+                                {comment.userName || 'Anonymous'}
+                                {comment.userRole === 'instructor' && (
+                                  <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                    Instructor
                               </span>
+                                )}
+                              </span>
+                              <div className="flex items-center">
+                                <span className="text-sm text-gray-500 mr-3">
+                                  {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : 'Just now'}
+                                </span>
+                                {(comment.userId === user?.uid || (user?.role === 'instructor' && course?.instructorId === user?.uid)) && (
+                                  <button
+                                    onClick={() => handleDeleteComment(comment.id)}
+                                    className="text-gray-400 hover:text-red-500"
+                                    title="Delete comment"
+                                  >
+                                    <TrashIcon className="h-5 w-5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <p className="text-gray-600">{comment.comment}</p>
                           </div>
                         </div>
                       ))}
+                      {comments.length === 0 && (
+                        <div className="text-center py-8">
+                          <ChatBubbleLeftRightIcon className="mx-auto h-10 w-10 text-gray-300" />
+                          <p className="mt-2 text-gray-500">No comments yet. Be the first to comment!</p>
+                        </div>
+                      )}
+                      {comments.length > itemsPerPage && (
+                        <Pagination 
+                          currentPage={commentPage} 
+                          totalPages={Math.ceil(comments.length / itemsPerPage)} 
+                          onPageChange={setCommentPage} 
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -924,14 +1159,14 @@ const CourseDetail = () => {
                       </div>
                     </div>
                     
-                    <button
-                      onClick={handleEnrollClick}
+                  <button
+                    onClick={handleEnrollClick}
                       className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-md text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                    >
+                  >
                       {course.price > 0 ? 
                         `Enroll Now - $${course.discountPrice || course.price}` : 
                         'Enroll For Free'}
-                    </button>
+                  </button>
                   </div>
                 </div>
               </div>
@@ -943,7 +1178,7 @@ const CourseDetail = () => {
                 <h2 className="text-xl font-semibold text-white flex items-center">
                   <BookOpenIcon className="h-6 w-6 mr-2" />
                   Course Content
-                  {isEnrolled && (
+                {isEnrolled && (
                     <span className="ml-auto text-sm text-white/90 bg-white/20 px-3 py-1 rounded-full">
                       {completedLessons} of {totalLessons} lessons complete
                     </span>
@@ -967,9 +1202,9 @@ const CourseDetail = () => {
               )}
               
               <div className="divide-y">
-                {course.lessons.map((lesson, index) => (
+                {paginateArray(course.lessons, lessonPage, itemsPerPage).map((lesson, index) => (
                   <motion.div
-                    key={index}
+                    key={`lesson-${lesson.id}-${index}`}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: index * 0.1 }}
@@ -1008,8 +1243,8 @@ const CourseDetail = () => {
                                 {lesson.studyMaterials.length} {lesson.studyMaterials.length === 1 ? 'material' : 'materials'}
                               </span>
                             )}
-                          </div>
                         </div>
+                      </div>
                       </div>
                       
                       {lesson.previewEnabled && !isEnrolled && (
@@ -1022,6 +1257,70 @@ const CourseDetail = () => {
                 ))}
               </div>
             </div>
+
+            {/* Course Materials */}
+            {isEnrolled && selectedLesson && (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden mt-6">
+                <div className="bg-gradient-to-r from-green-600 to-teal-600 p-4">
+                  <h2 className="text-xl font-semibold text-white flex items-center">
+                    <DocumentIcon className="h-6 w-6 mr-2" />
+                    Course Materials
+                  </h2>
+                </div>
+                
+                <div className="p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">
+                    {selectedLesson.title} - Materials
+                  </h3>
+                  
+                  {selectedLesson.studyMaterials && selectedLesson.studyMaterials.length > 0 ? (
+                    <>
+                      <div className="space-y-3">
+                        {paginateArray(selectedLesson.studyMaterials, materialPage, itemsPerPage).map((material, mIndex) => (
+                          <div key={`material-${selectedLesson.id}-${mIndex}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center text-gray-700">
+                              <DocumentIcon className="h-5 w-5 mr-3 text-blue-500" />
+                              <div>
+                                <p className="font-medium">{material.name}</p>
+                                {material.size && (
+                                  <p className="text-xs text-gray-500">
+                                    {typeof material.size === 'number' 
+                                      ? Math.round(material.size / 1024) + ' KB' 
+                                      : material.size}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <a 
+                              href={material.url} 
+                              download={material.name}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                            >
+                              <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+                              Download
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedLesson.studyMaterials.length > itemsPerPage && (
+                        <Pagination 
+                          currentPage={materialPage} 
+                          totalPages={Math.ceil(selectedLesson.studyMaterials.length / itemsPerPage)} 
+                          onPageChange={setMaterialPage} 
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <DocumentIcon className="mx-auto h-10 w-10 text-gray-300" />
+                      <p className="mt-2 text-gray-500">No materials available for this lesson</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Review Section */}
             {isEnrolled && (
@@ -1044,19 +1343,19 @@ const CourseDetail = () => {
                   <div className="bg-blue-50 rounded-lg p-4 mb-6">
                     <label htmlFor="rating" className="block text-sm font-medium text-gray-700 mb-3">Rating</label>
                     <div className="flex items-center" id="rating">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          onClick={() => setRating(star)}
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
                           className="p-1 focus:outline-none transition-transform hover:scale-110"
-                        >
-                          {star <= rating ? (
+                    >
+                      {star <= rating ? (
                             <StarIconSolid className="h-8 w-8 text-yellow-400" />
-                          ) : (
+                      ) : (
                             <StarIcon className="h-8 w-8 text-gray-300" />
-                          )}
-                        </button>
-                      ))}
+                      )}
+                    </button>
+                  ))}
                       <span className="ml-3 text-gray-700 font-medium">
                         {rating === 1 && "Poor"}
                         {rating === 2 && "Fair"}
@@ -1064,15 +1363,15 @@ const CourseDetail = () => {
                         {rating === 4 && "Good"}
                         {rating === 5 && "Excellent"}
                       </span>
-                    </div>
+                </div>
                   </div>
                   
                   <div className="mb-6">
                     <label htmlFor="review-text" className="block text-sm font-medium text-gray-700 mb-2">Your Review</label>
-                    <textarea
+                <textarea
                       id="review-text"
-                      value={review}
-                      onChange={(e) => setReview(e.target.value)}
+                  value={review}
+                  onChange={(e) => setReview(e.target.value)}
                       placeholder="Share details about your experience taking this course..."
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       rows={5}
@@ -1080,9 +1379,9 @@ const CourseDetail = () => {
                   </div>
                   
                   <div className="flex justify-end">
-                    <button
-                      onClick={() => submitReviewMutation.mutate()}
-                      disabled={!rating || !review || submitReviewMutation.isLoading}
+                <button
+                  onClick={() => submitReviewMutation.mutate()}
+                  disabled={!rating || !review || submitReviewMutation.isLoading}
                       className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {submitReviewMutation.isLoading ? (
@@ -1096,7 +1395,7 @@ const CourseDetail = () => {
                       ) : (
                         <>Submit Review</>
                       )}
-                    </button>
+                </button>
                   </div>
                 </div>
               </div>
@@ -1123,10 +1422,12 @@ const CourseDetail = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {course.lessons.map((lesson, index) => (
+                  {paginateArray(course.lessons, progressPage, 5).map((lesson, index) => (
                     <div
-                      key={index}
+                      key={`progress-${lesson.id}-${index}`}
                       className="flex items-center text-sm"
+                      onClick={() => handleLessonSelect(lesson)}
+                      style={{ cursor: 'pointer' }}
                     >
                       {progress[lesson.id] ? (
                         <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
@@ -1138,6 +1439,13 @@ const CourseDetail = () => {
                       </span>
                     </div>
                   ))}
+                  {course.lessons.length > 5 && (
+                    <Pagination 
+                      currentPage={progressPage} 
+                      totalPages={Math.ceil(course.lessons.length / 5)} 
+                      onPageChange={setProgressPage} 
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1157,14 +1465,14 @@ const CourseDetail = () => {
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold">
                     Complete Your Enrollment
-                  </h3>
-                  <button
-                    onClick={() => setShowPaymentForm(false)}
+                </h3>
+                <button
+                  onClick={() => setShowPaymentForm(false)}
                     className="text-white/80 hover:text-white focus:outline-none transition-colors"
-                  >
-                    <span className="sr-only">Close</span>
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
+                >
+                  <span className="sr-only">Close</span>
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
                 </div>
               </div>
               
@@ -1192,7 +1500,7 @@ const CourseDetail = () => {
                       </span>
                     </div>
                   </div>
-                </div>
+              </div>
 
                 <PaymentForm
                   course={{
@@ -1204,11 +1512,66 @@ const CourseDetail = () => {
                 
                 <div className="mt-4 text-xs text-gray-500 text-center">
                   <p>By completing this purchase you agree to our <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.</p>
-                </div>
+            </div>
               </div>
             </motion.div>
           </div>
         )}
+
+        {/* Review Section */}
+        <div className="mt-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Course Reviews</h3>
+          
+          {reviews && reviews.length > 0 ? (
+            <>
+              <div className="space-y-4">
+                {paginateArray(reviews, reviewPage, itemsPerPage).map((review, index) => (
+                  <div key={generateUniqueKey('review', review.id, index)} className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        {review.userAvatar ? (
+                          <img 
+                            src={review.userAvatar} 
+                            alt={review.userName || 'User'} 
+                            className="h-8 w-8 rounded-full mr-3"
+                          />
+                        ) : (
+                          <UserCircleIcon className="h-8 w-8 text-gray-400 mr-3" />
+                        )}
+                        <span className="font-medium text-gray-900">
+                          {review.userName || 'Anonymous User'}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="flex mr-2">
+                          {[...Array(5)].map((_, i) => (
+                            <StarIconSolid 
+                              key={`star-${review.id}-${i}`} 
+                              className={`h-4 w-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`} 
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {review.createdAt.toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-gray-600">{review.comment}</p>
+                  </div>
+                ))}
+              </div>
+              {reviews.length > itemsPerPage && (
+                <Pagination 
+                  currentPage={reviewPage} 
+                  totalPages={Math.ceil(reviews.length / itemsPerPage)} 
+                  onPageChange={setReviewPage} 
+                />
+              )}
+            </>
+          ) : (
+            <p className="text-gray-500 text-center py-6">No reviews yet</p>
+          )}
+        </div>
       </div>
     </div>
   );

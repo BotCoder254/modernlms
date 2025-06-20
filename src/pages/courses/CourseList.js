@@ -90,7 +90,7 @@ const CourseList = () => {
         // Filter by search text
         const matchesSearch = 
           !filters.search ||
-          data.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+            data.title.toLowerCase().includes(filters.search.toLowerCase()) ||
           data.description.toLowerCase().includes(filters.search.toLowerCase()) ||
           (data.instructorName && data.instructorName.toLowerCase().includes(filters.search.toLowerCase()));
         
@@ -148,19 +148,19 @@ const CourseList = () => {
                 className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
               />
               <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-            >
-              {showFilters ? (
-                <XMarkIcon className="h-5 w-5 mr-2" />
-              ) : (
-                <AdjustmentsVerticalIcon className="h-5 w-5 mr-2" />
-              )}
-              {showFilters ? 'Hide Filters' : 'Filters'}
-            </button>
           </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+          >
+            {showFilters ? (
+              <XMarkIcon className="h-5 w-5 mr-2" />
+            ) : (
+                <AdjustmentsVerticalIcon className="h-5 w-5 mr-2" />
+            )}
+              {showFilters ? 'Hide Filters' : 'Filters'}
+          </button>
+        </div>
         </motion.div>
 
         {/* Filters */}
@@ -314,9 +314,9 @@ const CourseList = () => {
               >
                 <Link to={`/courses/${course.id}`} className="block">
                   <div className="relative">
-                    <img
-                      src={course.thumbnail}
-                      alt={course.title}
+                  <img
+                    src={course.thumbnail}
+                    alt={course.title}
                       className="w-full h-48 object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -362,14 +362,14 @@ const CourseList = () => {
                     <div className="flex items-center justify-between mt-4">
                       <div className="font-medium">
                         {course.hasDiscount ? (
-                          <div className="flex items-center">
+                      <div className="flex items-center">
                             <span className="text-gray-400 line-through text-sm mr-2">${course.price}</span>
                             <span className="text-blue-600">${course.discountPrice}</span>
                           </div>
                         ) : (
                           <span className="text-blue-600">
                             {course.isFree || course.price === 0 ? 'Free' : `$${course.price}`}
-                          </span>
+                        </span>
                         )}
                       </div>
                       <div className="text-sm text-blue-600 hover:text-blue-800 flex items-center font-medium">
@@ -409,4 +409,4 @@ const CourseList = () => {
   );
 };
 
-export default CourseList;
+export default CourseList; 

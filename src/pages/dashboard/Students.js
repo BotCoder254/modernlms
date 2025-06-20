@@ -117,7 +117,7 @@ const Students = () => {
         
         return acc;
       }, {});
-      
+
       // Process data for charts
       const result = Object.values(studentMap).map(student => {
         // Calculate average progress per category
@@ -151,7 +151,7 @@ const Students = () => {
           student.email.toLowerCase().includes(searchTerm.toLowerCase())
       )
     : studentData;
-    
+
   // Prepare chart data
   const enrollmentsByCategory = {};
   studentData.forEach(student => {
@@ -409,13 +409,13 @@ const Students = () => {
                         )}
                       </div>
                       <div className="ml-4">
-                        <h3 className="text-lg font-medium text-gray-900">{student.name}</h3>
-                        <p className="text-sm text-gray-500">{student.email}</p>
+                      <h3 className="text-lg font-medium text-gray-900">{student.name}</h3>
+                      <p className="text-sm text-gray-500">{student.email}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
                       <div className="text-sm text-gray-500 mb-1">
-                        {student.enrollments.length} courses enrolled
+                      {student.enrollments.length} courses enrolled
                       </div>
                       <div className="text-sm text-gray-500 flex items-center">
                         <CalendarIcon className="h-4 w-4 mr-1" />
@@ -486,4 +486,4 @@ const Students = () => {
   );
 };
 
-export default Students;
+export default Students; 

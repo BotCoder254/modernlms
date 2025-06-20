@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
@@ -19,6 +19,19 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, Cell, Legend 
 } from 'recharts';
+
+// Helper functions
+const calculateProgress = (enrollment) => {
+  if (!enrollment || !enrollment.progress) return { percentage: 0, completed: 0, total: 0 };
+  
+  const completedLessons = Object.values(enrollment.progress).filter(Boolean).length;
+  const totalLessons = enrollment.course?.lessons?.length || 0;
+  return {
+    percentage: Math.round((completedLessons / totalLessons) * 100) || 0,
+    completed: completedLessons,
+    total: totalLessons,
+  };
+};
 
 const Progress = () => {
   const { user } = useAuth();
@@ -48,19 +61,19 @@ const Progress = () => {
               return null;
             }
 
-            // Fetch reviews for this course
+            // Fetch reviews for this course - modified to avoid index error
             const reviewsRef = collection(db, 'reviews');
             const reviewsQuery = query(
               reviewsRef,
               where('courseId', '==', enrollDoc.data().courseId),
-              orderBy('createdAt', 'desc')
+              limit(10) // Limit to the most recent 10 reviews
             );
             const reviewsSnap = await getDocs(reviewsQuery);
             const reviews = reviewsSnap.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
               createdAt: doc.data().createdAt?.toDate() || new Date()
-            }));
+            })).sort((a, b) => b.createdAt - a.createdAt); // Sort client-side instead of using orderBy
 
             // Update reviews in state
             setCourseReviews(prev => ({
@@ -187,16 +200,6 @@ const Progress = () => {
     };
   });
   
-  const calculateProgress = (enrollment) => {
-    const completedLessons = Object.values(enrollment.progress).filter(Boolean).length;
-    const totalLessons = enrollment.course.lessons?.length || 0;
-    return {
-      percentage: Math.round((completedLessons / totalLessons) * 100) || 0,
-      completed: completedLessons,
-      total: totalLessons,
-    };
-  };
-
   const getAverageRating = (courseId) => {
     const reviews = courseReviews[courseId] || [];
     if (reviews.length === 0) return 0;

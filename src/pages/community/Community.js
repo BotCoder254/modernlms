@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -8,7 +8,9 @@ import {
   where,
   orderBy,
   getDocs,
+  onSnapshot,
   limit,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import {
@@ -16,6 +18,8 @@ import {
   FireIcon,
   ClockIcon,
   QuestionMarkCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 
 const SORT_OPTIONS = {
@@ -27,6 +31,10 @@ const SORT_OPTIONS = {
 const Community = () => {
   const [sortBy, setSortBy] = useState('recent');
   const [selectedCourse, setSelectedCourse] = useState('all');
+  const [discussions, setDiscussions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const discussionsPerPage = 5;
 
   // Fetch courses for the filter
   const { data: courses } = useQuery({
@@ -38,10 +46,10 @@ const Community = () => {
     },
   });
 
-  // Fetch discussions based on filters
-  const { data: discussions, isLoading } = useQuery({
-    queryKey: ['discussions', sortBy, selectedCourse],
-    queryFn: async () => {
+  // Use a real-time subscription for discussions
+  useEffect(() => {
+    setIsLoading(true);
+    
       const discussionsRef = collection(db, 'discussions');
       let q = query(discussionsRef);
 
@@ -50,7 +58,8 @@ const Community = () => {
         q = query(q, where('courseId', '==', selectedCourse));
       }
 
-      // Apply sorting
+    // Apply sorting with proper error handling
+    try {
       switch (sortBy) {
         case 'popular':
           q = query(q, orderBy('likes', 'desc'));
@@ -59,14 +68,140 @@ const Community = () => {
           q = query(q, where('responseCount', '==', 0));
           break;
         default:
-          q = query(q, orderBy('createdAt', 'desc'));
+          // For 'recent', fetch without orderBy to avoid index issues
+          q = query(q, limit(50));
+          break;
       }
+    } catch (error) {
+      console.error("Error creating query:", error);
+      // Fallback to simple query with just a limit
+      q = query(discussionsRef, limit(50));
+    }
 
-      q = query(q, limit(20));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    },
-  });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        try {
+          // Use a Map to ensure we don't have duplicate IDs
+          const discussionsMap = new Map();
+          snapshot.docs.forEach((doc) => {
+            const data = doc.data();
+            // Create a truly unique key by combining id with timestamp
+            const uniqueId = `${doc.id}-${data.createdAt ? data.createdAt.seconds : Date.now()}`;
+            discussionsMap.set(uniqueId, { 
+              id: doc.id, 
+              uniqueId,
+              ...data,
+              // Ensure createdAt is properly formatted
+              createdAt: data.createdAt instanceof Timestamp ? data.createdAt : new Timestamp(0, 0)
+            });
+          });
+          
+          // Convert Map back to array and sort if needed
+          let discussionsList = Array.from(discussionsMap.values());
+          
+          // Sort client-side for 'recent' to avoid Firebase index issues
+          if (sortBy === 'recent') {
+            discussionsList = discussionsList.sort((a, b) => 
+              b.createdAt?.seconds - a.createdAt?.seconds || 0
+            );
+          }
+          
+          setDiscussions(discussionsList);
+          setIsLoading(false);
+          // Reset to first page when filters change
+          setCurrentPage(1);
+        } catch (error) {
+          console.error("Error processing discussions:", error);
+          setIsLoading(false);
+        }
+      },
+      (error) => {
+        console.error("Discussions subscription error:", error);
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [sortBy, selectedCourse]);
+
+  // Pagination function
+  const paginateDiscussions = (items, page, perPage) => {
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return items.slice(startIndex, endIndex);
+  };
+
+  // Pagination component
+  const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div className="flex items-center justify-center mt-6">
+        <nav className="flex items-center space-x-1" aria-label="Pagination">
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className={`px-2 py-1 rounded-md ${
+              currentPage === 1
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+
+          {[...Array(totalPages)].map((_, index) => {
+            const pageNumber = index + 1;
+            // Show first page, last page, and pages around current page
+            if (
+              pageNumber === 1 ||
+              pageNumber === totalPages ||
+              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+            ) {
+              return (
+                <button
+                  key={`page-${pageNumber}`}
+                  onClick={() => onPageChange(pageNumber)}
+                  className={`px-3 py-1 rounded-md ${
+                    currentPage === pageNumber
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              );
+            } 
+            // Show ellipsis for skipped pages
+            else if (
+              (pageNumber === 2 && currentPage > 3) ||
+              (pageNumber === totalPages - 1 && currentPage < totalPages - 2)
+            ) {
+              return <span key={`ellipsis-${pageNumber}`}>...</span>;
+            }
+            return null;
+          })}
+
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className={`px-2 py-1 rounded-md ${
+              currentPage === totalPages
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronRightIcon className="h-5 w-5" />
+          </button>
+        </nav>
+      </div>
+    );
+  };
+
+  // Get paginated discussions
+  const paginatedDiscussions = paginateDiscussions(discussions, currentPage, discussionsPerPage);
+  const totalPages = Math.ceil(discussions.length / discussionsPerPage);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -90,7 +225,7 @@ const Community = () => {
             >
               <option value="all">All Courses</option>
               {courses?.map((course) => (
-                <option key={course.id} value={course.id}>
+                <option key={`course-${course.id}`} value={course.id}>
                   {course.title}
                 </option>
               ))}
@@ -101,7 +236,7 @@ const Community = () => {
           <div className="flex space-x-2">
             {Object.entries(SORT_OPTIONS).map(([key, { label, icon: Icon }]) => (
               <button
-                key={key}
+                key={`sort-${key}`}
                 onClick={() => setSortBy(key)}
                 className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium ${
                   sortBy === key
@@ -122,7 +257,7 @@ const Community = () => {
             // Loading state
             <div className="animate-pulse space-y-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg shadow-sm p-6">
+                <div key={`loading-${i}`} className="bg-white rounded-lg shadow-sm p-6">
                   <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
                   <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 </div>
@@ -138,11 +273,12 @@ const Community = () => {
               </p>
             </div>
           ) : (
-            // Discussions
+            // Discussions with pagination
+            <>
             <motion.div layout className="space-y-4">
-              {discussions?.map((discussion) => (
+                {paginatedDiscussions.map((discussion, index) => (
                 <motion.div
-                  key={discussion.id}
+                    key={`discussion-${discussion.uniqueId}-${index}`}
                   layout
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -159,7 +295,7 @@ const Community = () => {
                           {discussion.message}
                         </h3>
                         <p className="mt-1 text-sm text-gray-500">
-                          Started by {discussion.userName} •{' '}
+                            Started by {discussion.userName || 'Anonymous'} •{' '}
                           {discussion.createdAt?.seconds
                             ? new Date(discussion.createdAt.seconds * 1000).toLocaleString()
                             : 'Just now'}
@@ -180,6 +316,14 @@ const Community = () => {
                 </motion.div>
               ))}
             </motion.div>
+              
+              {/* Pagination */}
+              <Pagination 
+                currentPage={currentPage} 
+                totalPages={totalPages} 
+                onPageChange={setCurrentPage} 
+              />
+            </>
           )}
         </div>
       </div>

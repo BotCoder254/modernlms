@@ -187,7 +187,7 @@ const CreateCourse = () => {
         );
         
         await uploadTask;
-        const url = await getDownloadURL(storageRef);
+      const url = await getDownloadURL(storageRef);
         
         // Mark as complete
         setFileUploads(prev => ({
@@ -233,8 +233,8 @@ const CreateCourse = () => {
       const materialResults = await Promise.all(uploadPromises);
       const validMaterials = materialResults.filter(Boolean);
       
-      newLessons[index].studyMaterials = [
-        ...(newLessons[index].studyMaterials || []),
+    newLessons[index].studyMaterials = [
+      ...(newLessons[index].studyMaterials || []),
         ...validMaterials
       ];
       
@@ -258,7 +258,7 @@ const CreateCourse = () => {
     e.preventDefault();
     setLoading(true);
     setUploadError('');
-    
+
     try {
       // Upload thumbnail with progress tracking
       let thumbnailUrl = '';
@@ -338,7 +338,7 @@ const CreateCourse = () => {
               }
             }));
           }
-          
+
           return {
             id: crypto.randomUUID(), // Add unique ID to each lesson for versioning
             title: lesson.title,
@@ -353,7 +353,7 @@ const CreateCourse = () => {
           };
         })
       );
-      
+
       // Create course document with version control
       const courseRef = await addDoc(collection(db, 'courses'), {
         title: courseData.title,
@@ -650,10 +650,10 @@ const CreateCourse = () => {
                         Video File
                       </label>
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition duration-150 cursor-pointer">
-                        <input
-                          type="file"
-                          accept="video/*"
-                          onChange={(e) => handleLessonVideoChange(e, index)}
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => handleLessonVideoChange(e, index)}
                           className="hidden"
                           id={`video-upload-${index}`}
                         />
@@ -700,10 +700,10 @@ const CreateCourse = () => {
                         Study Materials
                       </label>
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition duration-150 cursor-pointer">
-                        <input
-                          type="file"
-                          multiple
-                          onChange={(e) => handleStudyMaterialUpload(index, e.target.files)}
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) => handleStudyMaterialUpload(index, e.target.files)}
                           className="hidden"
                           id={`material-upload-${index}`}
                           accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
@@ -744,7 +744,7 @@ const CreateCourse = () => {
                         <div className="mt-3 bg-gray-50 p-3 rounded-md">
                           <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Materials</h4>
                           <ul className="space-y-2">
-                            {lesson.studyMaterials.map((material, mIndex) => (
+                          {lesson.studyMaterials.map((material, mIndex) => (
                               <li key={mIndex} className="flex items-center justify-between text-sm text-gray-600 bg-white p-2 rounded-md">
                                 <div className="flex items-center">
                                   <DocumentIcon className="h-5 w-5 mr-2 text-gray-500" />
@@ -762,9 +762,9 @@ const CreateCourse = () => {
                                     <TrashIcon className="h-4 w-4" />
                                   </button>
                                 </div>
-                              </li>
-                            ))}
-                          </ul>
+                            </li>
+                          ))}
+                        </ul>
                         </div>
                       )}
                     </div>

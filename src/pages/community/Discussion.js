@@ -14,6 +14,8 @@ import {
   increment,
   onSnapshot,
   serverTimestamp,
+  getDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +24,8 @@ import {
   HandThumbUpIcon,
   PaperAirplaneIcon,
   UserCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { HandThumbUpIcon as HandThumbUpSolidIcon } from '@heroicons/react/24/solid';
 
@@ -31,13 +35,18 @@ const Discussion = () => {
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState('');
   const [messages, setMessages] = useState([]);
+  const [messagePage, setMessagePage] = useState(1);
+  const messagesPerPage = 5;
 
   // Fetch course details
   const { data: course } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
       const docRef = doc(db, 'courses', courseId);
-      const docSnap = await docRef.get();
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        throw new Error('Course not found');
+      }
       return { id: docSnap.id, ...docSnap.data() };
     },
   });
@@ -52,15 +61,38 @@ const Discussion = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newMessages = [];
-      snapshot.forEach((doc) => {
-        newMessages.push({ id: doc.id, ...doc.data() });
-      });
-      setMessages(newMessages);
+      try {
+        // Use a Map to ensure we don't have duplicate IDs
+        const messagesMap = new Map();
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          // Create a truly unique key by combining id with timestamp
+          const uniqueId = `${doc.id}-${data.createdAt ? data.createdAt.seconds : Date.now()}`;
+          messagesMap.set(uniqueId, { 
+            id: doc.id, 
+            uniqueId,
+            ...data,
+            // Ensure createdAt is properly formatted
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt : new Timestamp(0, 0)
+          });
+        });
+        // Convert Map back to array
+        const newMessages = Array.from(messagesMap.values());
+        setMessages(newMessages);
+      } catch (error) {
+        console.error("Error processing messages:", error);
+      }
     });
 
     return () => unsubscribe();
   }, [courseId]);
+
+  // Pagination function
+  const paginateMessages = (items, page, perPage) => {
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return items.slice(startIndex, endIndex);
+  };
 
   // Add message mutation
   const addMessageMutation = useMutation({
@@ -70,14 +102,17 @@ const Discussion = () => {
         createdAt: serverTimestamp(),
         likes: 0,
         likedBy: [],
+        responseCount: 0,
       });
       return docRef;
     },
     onSuccess: () => {
       setNewMessage('');
+      setMessagePage(1); // Go to first page when new message is sent
       toast.success('Message sent successfully!');
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Message send error:', error);
       toast.error('Failed to send message');
     },
   });
@@ -85,15 +120,97 @@ const Discussion = () => {
   // Like message mutation
   const likeMessageMutation = useMutation({
     mutationFn: async ({ messageId, liked }) => {
-      const messageRef = doc(db, 'discussions', messageId);
-      await updateDoc(messageRef, {
-        likes: increment(liked ? 1 : -1),
-        likedBy: liked
-          ? [...(messages.find(m => m.id === messageId)?.likedBy || []), user.uid]
-          : messages.find(m => m.id === messageId)?.likedBy.filter(id => id !== user.uid) || [],
-      });
+      try {
+        const messageRef = doc(db, 'discussions', messageId);
+        const message = messages.find(m => m.id === messageId);
+        if (!message) return;
+        
+        const likedBy = message.likedBy || [];
+        const updatedLikedBy = liked 
+          ? [...likedBy, user.uid]
+          : likedBy.filter(id => id !== user.uid);
+          
+        await updateDoc(messageRef, {
+          likes: increment(liked ? 1 : -1),
+          likedBy: updatedLikedBy,
+        });
+      } catch (error) {
+        console.error("Like update error:", error);
+        throw error;
+      }
     },
+    onError: (error) => {
+      toast.error('Failed to update like status');
+      console.error('Like error:', error);
+    }
   });
+
+  // Pagination component
+  const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div className="flex items-center justify-center mt-4">
+        <nav className="flex items-center space-x-1" aria-label="Pagination">
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className={`px-2 py-1 rounded-md ${
+              currentPage === 1
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronLeftIcon className="h-5 w-5" />
+          </button>
+
+          {[...Array(totalPages)].map((_, index) => {
+            const pageNumber = index + 1;
+            // Show first page, last page, and pages around current page
+            if (
+              pageNumber === 1 ||
+              pageNumber === totalPages ||
+              (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+            ) {
+              return (
+                <button
+                  key={`page-${pageNumber}`}
+                  onClick={() => onPageChange(pageNumber)}
+                  className={`px-3 py-1 rounded-md ${
+                    currentPage === pageNumber
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              );
+            } 
+            // Show ellipsis for skipped pages
+            else if (
+              (pageNumber === 2 && currentPage > 3) ||
+              (pageNumber === totalPages - 1 && currentPage < totalPages - 2)
+            ) {
+              return <span key={`ellipsis-${pageNumber}`}>...</span>;
+            }
+            return null;
+          })}
+
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className={`px-2 py-1 rounded-md ${
+              currentPage === totalPages
+                ? 'text-gray-400 cursor-not-allowed'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <ChevronRightIcon className="h-5 w-5" />
+          </button>
+        </nav>
+      </div>
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -110,9 +227,15 @@ const Discussion = () => {
 
   const handleLike = (messageId) => {
     const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+    
     const liked = !message.likedBy?.includes(user.uid);
     likeMessageMutation.mutate({ messageId, liked });
   };
+
+  // Get paginated messages
+  const paginatedMessages = paginateMessages(messages, messagePage, messagesPerPage);
+  const totalPages = Math.ceil(messages.length / messagesPerPage);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -128,9 +251,9 @@ const Discussion = () => {
         {/* Message List */}
         <div className="space-y-4 mb-8">
           <AnimatePresence>
-            {messages.map((message) => (
+            {paginatedMessages.map((message, index) => (
               <motion.div
-                key={message.id}
+                key={`message-${message.uniqueId}-${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -144,7 +267,7 @@ const Discussion = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {message.userName}
+                          {message.userName || 'Anonymous'}
                           {message.userRole === 'instructor' && (
                             <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
                               Instructor
@@ -175,6 +298,25 @@ const Discussion = () => {
               </motion.div>
             ))}
           </AnimatePresence>
+          
+          {/* Pagination */}
+          {messages.length > 0 && (
+            <Pagination 
+              currentPage={messagePage} 
+              totalPages={totalPages} 
+              onPageChange={setMessagePage} 
+            />
+          )}
+          
+          {messages.length === 0 && (
+            <div className="text-center py-12">
+              <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No messages yet</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Be the first to start a discussion!
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Message Input */}

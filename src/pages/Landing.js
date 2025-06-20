@@ -245,11 +245,11 @@ const Landing = () => {
                 className="bg-white rounded-xl shadow-xl overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
               >
                 <div className="relative">
-                  <img
-                    src={course.thumbnail || `https://images.pexels.com/photos/5905710/pexels-photo-5905710.jpeg?auto=compress&cs=tinysrgb&w=600`}
-                    alt={course.title}
+                <img
+                  src={course.thumbnail || `https://images.pexels.com/photos/5905710/pexels-photo-5905710.jpeg?auto=compress&cs=tinysrgb&w=600`}
+                  alt={course.title}
                     className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                />
                   <div className="absolute top-4 right-4 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
                     FEATURED
                   </div>
@@ -267,13 +267,13 @@ const Landing = () => {
                   <p className="text-gray-600 mb-6 line-clamp-2">{course.description}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-blue-600 font-bold">{course.price ? `$${course.price}` : 'Free'}</span>
-                    <Link
-                      to={`/courses/${course.id}`}
+                  <Link
+                    to={`/courses/${course.id}`}
                       className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
-                    >
+                  >
                       Learn More
                       <ArrowRightIcon className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform" />
-                    </Link>
+                  </Link>
                   </div>
                 </div>
               </motion.div>
@@ -404,14 +404,14 @@ const Landing = () => {
               <h2 className="text-3xl font-bold mb-4">Become an Instructor Today</h2>
               <p className="text-xl text-blue-100 mb-6 max-w-2xl">
                 Share your knowledge, build your brand, and earn revenue while helping others learn and grow.
-              </p>
-              <Link 
-                to="/signup?role=instructor" 
+            </p>
+            <Link
+              to="/signup?role=instructor"
                 className="inline-flex items-center justify-center px-6 py-3 border-2 border-white text-base font-medium rounded-md text-white hover:bg-white hover:text-blue-700 transition-all duration-300"
-              >
+            >
                 Start Teaching
                 <ArrowRightIcon className="w-5 h-5 ml-2" />
-              </Link>
+            </Link>
             </div>
             <div className="md:w-1/3">
               <img 
@@ -460,4 +460,4 @@ const Landing = () => {
   );
 };
 
-export default Landing;
+export default Landing; 
