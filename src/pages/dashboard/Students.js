@@ -29,6 +29,8 @@ const Students = () => {
   const { data: studentData = [], isLoading } = useQuery({
     queryKey: ['students', user?.uid],
     queryFn: async () => {
+      if (!user?.uid) return [];
+      
       // First get all courses by the instructor
       const coursesRef = collection(db, 'courses');
       const courseQuery = query(coursesRef, where('instructorId', '==', user.uid));
@@ -39,28 +41,63 @@ const Students = () => {
         return acc;
       }, {});
 
-      // Then get all enrollments for these courses
+      if (courseIds.length === 0) return [];
+
+      // Then get all enrollments for these courses using Promise.all for parallel requests
       const enrollmentsRef = collection(db, 'enrollments');
       const enrollmentPromises = courseIds.map(async (courseId) => {
         const enrollmentQuery = query(enrollmentsRef, where('courseId', '==', courseId));
         const enrollmentSnapshot = await getDocs(enrollmentQuery);
         
-        const enrollmentData = await Promise.all(
-          enrollmentSnapshot.docs.map(async (doc) => {
-            const userData = await getDoc(doc(db, 'users', doc.data().userId));
+        // Process enrollments in parallel for better performance
+        return Promise.all(enrollmentSnapshot.docs.map(async (doc) => {
+          const enrollmentData = doc.data();
+          const userId = enrollmentData.userId;
+          
+          try {
+            const userData = await getDoc(doc(db, 'users', userId));
+            
+            // Also fetch the latest progress data
+            const progressQuery = query(
+              collection(db, 'progress'),
+              where('userId', '==', userId),
+              where('courseId', '==', courseId)
+            );
+            const progressSnapshot = await getDocs(progressQuery);
+            
+            // Get latest progress entry
+            let latestProgress = null;
+            let latestTimestamp = 0;
+            
+            progressSnapshot.forEach(progressDoc => {
+              const progressData = progressDoc.data();
+              if (progressData.lastUpdated && progressData.lastUpdated.seconds > latestTimestamp) {
+                latestTimestamp = progressData.lastUpdated.seconds;
+                latestProgress = progressData;
+              }
+            });
             
             return {
               id: doc.id,
-              ...doc.data(),
-              student: userData.data(),
+              ...enrollmentData,
+              student: userData.exists() ? userData.data() : null,
               course: courseData[courseId],
+              latestActivity: latestProgress?.lastUpdated || enrollmentData.enrolledAt || null
             };
-          })
-        );
-        
-        return enrollmentData;
+          } catch (error) {
+            console.error(`Error fetching data for user ${userId}:`, error);
+            return {
+              id: doc.id,
+              ...enrollmentData,
+              student: null,
+              course: courseData[courseId],
+              error: true
+            };
+          }
+        }));
       });
 
+      // Wait for all enrollment data
       const allEnrollments = (await Promise.all(enrollmentPromises)).flat();
       
       // Group by student
@@ -74,7 +111,8 @@ const Students = () => {
             enrollments: [],
             enrollmentDates: [],
             progressByCategory: {},
-            completedCourses: 0
+            completedCourses: 0,
+            lastActive: null
           };
         }
         
@@ -99,6 +137,12 @@ const Students = () => {
           acc[enrollment.userId].completedCourses += 1;
         }
         
+        // Track last activity
+        if (enrollment.latestActivity && (!acc[enrollment.userId].lastActive || 
+            enrollment.latestActivity.seconds > acc[enrollment.userId].lastActive.seconds)) {
+          acc[enrollment.userId].lastActive = enrollment.latestActivity;
+        }
+        
         // Save enrollment data
         acc[enrollment.userId].enrollments.push({
           courseId: enrollment.courseId,
@@ -108,7 +152,8 @@ const Students = () => {
           progressPercentage: progress,
           enrolledAt: enrollment.enrolledAt,
           totalLessons,
-          completedLessons
+          completedLessons,
+          lastActivity: enrollment.latestActivity
         });
         
         // Save enrollment date for chart
@@ -142,7 +187,9 @@ const Students = () => {
 
       return result;
     },
-    enabled: !!user,
+    enabled: !!user?.uid && user?.role === 'instructor',
+    staleTime: 30000, // 30 seconds - balance between fresh data and performance
+    refetchInterval: 60000 // Refresh every minute even if not invalidated
   });
 
   // Set up real-time student data subscription
@@ -157,14 +204,41 @@ const Students = () => {
       const courseIds = courseSnapshot.docs.map(doc => doc.id);
       
       // Set up listeners for enrollments on each course
-      const unsubscribers = courseIds.map(courseId => {
-        return onSnapshot(
-          query(collection(db, 'enrollments'), where('courseId', '==', courseId)),
+      const unsubscribers = [];
+      
+      // Course listener (for new courses)
+      unsubscribers.push(
+        onSnapshot(
+          query(collection(db, 'courses'), where('instructorId', '==', user.uid)),
           () => {
-            // When enrollments change, invalidate the query to update data
             queryClient.invalidateQueries(['students', user?.uid]);
           },
-          (error) => console.error('Enrollment subscription error:', error)
+          (error) => console.error('Courses subscription error:', error)
+        )
+      );
+      
+      // Enrollment listeners (for each course)
+      courseIds.forEach(courseId => {
+        unsubscribers.push(
+          onSnapshot(
+            query(collection(db, 'enrollments'), where('courseId', '==', courseId)),
+            (snapshot) => {
+              // When enrollments change, invalidate the query to update data
+              queryClient.invalidateQueries(['students', user?.uid]);
+            },
+            (error) => console.error('Enrollment subscription error:', error)
+          )
+        );
+        
+        // Progress listeners
+        unsubscribers.push(
+          onSnapshot(
+            query(collection(db, 'progress'), where('courseId', '==', courseId)),
+            () => {
+              queryClient.invalidateQueries(['students', user?.uid]);
+            },
+            (error) => console.error('Progress subscription error:', error)
+          )
         );
       });
       
@@ -174,14 +248,12 @@ const Students = () => {
       };
     };
     
-    const unsubscribe = getCoursesAndSetupListeners();
+    const unsubscribePromise = getCoursesAndSetupListeners();
     return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      } else if (unsubscribe instanceof Promise) {
-        unsubscribe.then(cleanup => {
+      if (unsubscribePromise instanceof Promise) {
+        unsubscribePromise.then(cleanup => {
           if (cleanup) cleanup();
-        });
+        }).catch(err => console.error("Error cleaning up subscriptions:", err));
       }
     };
   }, [user?.uid, user?.role, queryClient]);
