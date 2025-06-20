@@ -10,9 +10,12 @@ import {
   getDocs,
   onSnapshot,
   limit,
-  Timestamp
+  Timestamp,
+  addDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { useAuth } from '../../context/AuthContext';
 import {
   ChatBubbleLeftRightIcon,
   FireIcon,
@@ -35,6 +38,86 @@ const Community = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const discussionsPerPage = 5;
+  const { user } = useAuth();
+  
+  // Migration function to ensure all comments and reviews appear in discussions
+  useEffect(() => {
+    const migrateCommentsAndReviews = async () => {
+      try {
+        // Get all comments
+        const commentsQuery = query(collection(db, 'comments'));
+        const commentsSnapshot = await getDocs(commentsQuery);
+        
+        // Get all reviews
+        const reviewsQuery = query(collection(db, 'reviews'));
+        const reviewsSnapshot = await getDocs(reviewsQuery);
+        
+        // Get existing discussions to avoid duplicates
+        const discussionsQuery = query(collection(db, 'discussions'));
+        const discussionsSnapshot = await getDocs(discussionsQuery);
+        const existingDiscussionIds = new Set();
+        
+        // Track existing discussions by their source
+        discussionsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.sourceId) {
+            existingDiscussionIds.add(data.sourceId);
+          }
+        });
+        
+        // Migrate comments to discussions
+        for (const doc of commentsSnapshot.docs) {
+          const comment = doc.data();
+          
+          // Skip if already migrated or if courseId is missing
+          if (existingDiscussionIds.has(doc.id) || !comment.courseId) continue;
+          
+          await addDoc(collection(db, 'discussions'), {
+            userId: comment.userId || 'unknown',
+            userName: comment.userName || (comment.userId ? comment.userId.slice(0, 5) + '...' : 'Student'),
+            courseId: comment.courseId,
+            message: comment.comment || 'No message content',
+            createdAt: comment.createdAt || serverTimestamp(),
+            userRole: comment.userRole || 'student',
+            likes: 0,
+            likedBy: [],
+            responseCount: 0,
+            sourceId: doc.id,
+            sourceType: 'comment'
+          });
+        }
+        
+        // Migrate reviews to discussions
+        for (const doc of reviewsSnapshot.docs) {
+          const review = doc.data();
+          
+          // Skip if already migrated or if courseId is missing
+          if (existingDiscussionIds.has(doc.id) || !review.courseId) continue;
+          
+          await addDoc(collection(db, 'discussions'), {
+            userId: review.userId || 'unknown',
+            userName: review.userName || (review.userId ? review.userId.slice(0, 5) + '...' : 'Student'),
+            courseId: review.courseId,
+            message: `Review (${review.rating || 0}/5): ${review.comment || 'No review content'}`,
+            createdAt: review.createdAt || serverTimestamp(),
+            userRole: review.userRole || 'student',
+            likes: 0,
+            likedBy: [],
+            responseCount: 0,
+            sourceId: doc.id,
+            sourceType: 'review'
+          });
+        }
+      } catch (error) {
+        console.error("Error in migration:", error);
+      }
+    };
+    
+    // Only run migration if user is logged in
+    if (user) {
+      migrateCommentsAndReviews();
+    }
+  }, [user]);
 
   // Fetch courses for the filter
   const { data: courses } = useQuery({
@@ -50,31 +133,13 @@ const Community = () => {
   useEffect(() => {
     setIsLoading(true);
     
-      const discussionsRef = collection(db, 'discussions');
-      let q = query(discussionsRef);
+    const discussionsRef = collection(db, 'discussions');
+    let q;
 
-      // Apply filters
-      if (selectedCourse !== 'all') {
-        q = query(q, where('courseId', '==', selectedCourse));
-      }
-
-    // Apply sorting with proper error handling
-    try {
-      switch (sortBy) {
-        case 'popular':
-          q = query(q, orderBy('likes', 'desc'));
-          break;
-        case 'unanswered':
-          q = query(q, where('responseCount', '==', 0));
-          break;
-        default:
-          // For 'recent', fetch without orderBy to avoid index issues
-          q = query(q, limit(50));
-          break;
-      }
-    } catch (error) {
-      console.error("Error creating query:", error);
-      // Fallback to simple query with just a limit
+    // Simple query without compound index requirements
+    if (selectedCourse !== 'all') {
+      q = query(discussionsRef, where('courseId', '==', selectedCourse), limit(50));
+    } else {
       q = query(discussionsRef, limit(50));
     }
 
@@ -97,14 +162,23 @@ const Community = () => {
             });
           });
           
-          // Convert Map back to array and sort if needed
+          // Convert Map back to array and sort client-side to avoid Firestore indexes
           let discussionsList = Array.from(discussionsMap.values());
           
-          // Sort client-side for 'recent' to avoid Firebase index issues
-          if (sortBy === 'recent') {
-            discussionsList = discussionsList.sort((a, b) => 
-              b.createdAt?.seconds - a.createdAt?.seconds || 0
-            );
+          // Apply client-side sorting based on selected sort option
+          switch (sortBy) {
+            case 'popular':
+              discussionsList = discussionsList.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+              break;
+            case 'unanswered':
+              discussionsList = discussionsList.filter(d => !(d.responseCount && d.responseCount > 0))
+                .sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds || 0);
+              break;
+            default: // 'recent'
+              discussionsList = discussionsList.sort((a, b) => 
+                b.createdAt?.seconds - a.createdAt?.seconds || 0
+              );
+              break;
           }
           
           setDiscussions(discussionsList);
@@ -292,6 +366,8 @@ const Community = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-medium text-gray-900">
+                          {discussion.sourceType === 'review' && <span className="text-blue-600">[Review] </span>}
+                          {discussion.sourceType === 'comment' && <span className="text-green-600">[Comment] </span>}
                           {discussion.message}
                         </h3>
                         <p className="mt-1 text-sm text-gray-500">

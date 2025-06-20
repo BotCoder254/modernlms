@@ -54,17 +54,17 @@ const Discussion = () => {
   // Real-time messages subscription
   useEffect(() => {
     const messagesRef = collection(db, 'discussions');
+    // Avoid compound index requirements by simplifying the query
     const q = query(
       messagesRef,
-      where('courseId', '==', courseId),
-      orderBy('createdAt', 'desc')
+      where('courseId', '==', courseId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       try {
         // Use a Map to ensure we don't have duplicate IDs
         const messagesMap = new Map();
-      snapshot.forEach((doc) => {
+        snapshot.forEach((doc) => {
           const data = doc.data();
           // Create a truly unique key by combining id with timestamp
           const uniqueId = `${doc.id}-${data.createdAt ? data.createdAt.seconds : Date.now()}`;
@@ -76,9 +76,10 @@ const Discussion = () => {
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt : new Timestamp(0, 0)
           });
         });
-        // Convert Map back to array
-        const newMessages = Array.from(messagesMap.values());
-      setMessages(newMessages);
+        // Convert Map back to array and sort by timestamp
+        const newMessages = Array.from(messagesMap.values())
+          .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+        setMessages(newMessages);
       } catch (error) {
         console.error("Error processing messages:", error);
       }
@@ -121,7 +122,9 @@ const Discussion = () => {
   const likeMessageMutation = useMutation({
     mutationFn: async ({ messageId, liked }) => {
       try {
-      const messageRef = doc(db, 'discussions', messageId);
+        if (!user?.uid) throw new Error('User not authenticated');
+        
+        const messageRef = doc(db, 'discussions', messageId);
         const message = messages.find(m => m.id === messageId);
         if (!message) return;
         
@@ -130,8 +133,8 @@ const Discussion = () => {
           ? [...likedBy, user.uid]
           : likedBy.filter(id => id !== user.uid);
           
-      await updateDoc(messageRef, {
-        likes: increment(liked ? 1 : -1),
+        await updateDoc(messageRef, {
+          likes: increment(liked ? 1 : -1),
           likedBy: updatedLikedBy,
         });
       } catch (error) {
@@ -220,15 +223,20 @@ const Discussion = () => {
     const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Student');
     
     addMessageMutation.mutate({
-      courseId,
-      userId: user.uid,
+      courseId: courseId || 'unknown',
+      userId: user?.uid || 'unknown',
       userName: displayName,
-      userRole: user.role,
+      userRole: user?.role || 'student',
       message: newMessage.trim(),
     });
   };
 
   const handleLike = (messageId) => {
+    if (!user?.uid) {
+      toast.error('You need to be logged in to like messages');
+      return;
+    }
+    
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
     
@@ -295,7 +303,10 @@ const Discussion = () => {
                         <span>{message.likes || 0}</span>
                       </button>
                     </div>
-                    <p className="mt-2 text-gray-700">{message.message}</p>
+                    <p className="mt-2 text-gray-700">
+                      {message.sourceType === 'review' && <span className="text-blue-600 font-medium">Course Review: </span>}
+                      {message.message}
+                    </p>
                   </div>
                 </div>
               </motion.div>

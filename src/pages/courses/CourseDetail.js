@@ -270,6 +270,21 @@ const CourseDetail = () => {
         createdAt: serverTimestamp(),
       });
 
+      // Also add to discussions collection so it appears in the community section
+      await addDoc(collection(db, 'discussions'), {
+        userId: user.uid || 'unknown',
+        userName: displayName,
+        courseId: courseId,
+        message: `Review (${rating}/5): ${review}`,
+        createdAt: serverTimestamp(),
+        userRole: user.role || 'student',
+        likes: 0,
+        likedBy: [],
+        responseCount: 0,
+        sourceId: reviewRef.id,
+        sourceType: 'review'
+      });
+
       const courseRef = doc(db, 'courses', courseId);
       await updateDoc(courseRef, {
         rating: increment(rating),
@@ -449,12 +464,27 @@ const CourseDetail = () => {
         comment: newComment.trim(),
         timestamp: currentTime,
         createdAt: serverTimestamp(),
-        userRole: user.role,
+        userRole: user.role || 'student',
         userAvatar: user.photoURL || null
       };
 
       // Add comment to Firestore
       const commentRef = await addDoc(collection(db, 'comments'), commentData);
+
+      // Also add to discussions collection so it appears in the community section
+      await addDoc(collection(db, 'discussions'), {
+        userId: user.uid || 'unknown',
+        userName: displayName,
+        courseId: courseId,
+        message: newComment.trim(),
+        createdAt: serverTimestamp(),
+        userRole: user.role || 'student',
+        likes: 0,
+        likedBy: [],
+        responseCount: 0,
+        sourceId: commentRef.id,
+        sourceType: 'comment'
+      });
 
       // Update local state optimistically
       const newCommentData = {
