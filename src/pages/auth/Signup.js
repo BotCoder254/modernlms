@@ -54,7 +54,7 @@ const Signup = () => {
             </h2>
             <p className="mt-2 text-sm text-gray-600">
               Or{' '}
-              <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
                 sign in to your account
               </Link>
             </p>
@@ -65,7 +65,7 @@ const Signup = () => {
               <div>
                 <button
                   onClick={handleGoogleSignIn}
-                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                 >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                     <path
@@ -104,7 +104,10 @@ const Signup = () => {
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                   Full name
                 </label>
-                <div className="mt-1">
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <UserCircleIcon className="h-5 w-5 text-gray-400" />
+                  </div>
                   <input
                     id="name"
                     name="name"
@@ -113,7 +116,8 @@ const Signup = () => {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="John Doe"
                   />
                 </div>
               </div>
@@ -122,7 +126,10 @@ const Signup = () => {
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   Email address
                 </label>
-                <div className="mt-1">
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <EnvelopeIcon className="h-5 w-5 text-gray-400" />
+                  </div>
                   <input
                     id="email"
                     name="email"
@@ -131,7 +138,8 @@ const Signup = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="you@example.com"
                   />
                 </div>
               </div>
@@ -140,7 +148,10 @@ const Signup = () => {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
-                <div className="mt-1">
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                  </div>
                   <input
                     id="password"
                     name="password"
@@ -149,7 +160,8 @@ const Signup = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="••••••••"
                   />
                 </div>
               </div>
@@ -158,23 +170,33 @@ const Signup = () => {
                 <label htmlFor="role" className="block text-sm font-medium text-gray-700">
                   I want to
                 </label>
-                <select
-                  id="role"
-                  name="role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                >
-                  <option value="student">Learn as a Student</option>
-                  <option value="instructor">Teach as an Instructor</option>
-                </select>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <AcademicCapIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    id="role"
+                    name="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="appearance-none block w-full pl-10 pr-10 py-2 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="student">Learn as a Student</option>
+                    <option value="instructor">Teach as an Instructor</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               <div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ${
                     loading ? 'opacity-75 cursor-not-allowed' : ''
                   }`}
                 >
@@ -193,6 +215,15 @@ const Signup = () => {
           src="https://images.unsplash.com/photo-1505904267569-f02eaeb45a4c?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1908&q=80"
           alt=""
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 to-blue-700/40 mix-blend-multiply" />
+        <div className="absolute inset-0 flex flex-col justify-center items-start px-12">
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Join Our Learning Community
+          </h1>
+          <p className="text-xl text-white opacity-90 max-w-md">
+            Get access to high-quality courses and connect with learners from around the world.
+          </p>
+        </div>
       </div>
     </div>
   );

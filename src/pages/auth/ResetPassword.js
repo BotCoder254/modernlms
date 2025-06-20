@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import {
   EnvelopeIcon,
   ArrowLeftIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
 const ResetPassword = () => {
@@ -36,7 +37,7 @@ const ResetPassword = () => {
           <div className="flex items-center justify-between mb-8">
             <Link
               to="/login"
-              className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-900"
+              className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
             >
               <ArrowLeftIcon className="w-5 h-5 mr-2" />
               Back to Sign in
@@ -52,24 +53,13 @@ const ResetPassword = () => {
 
           <div className="mt-8">
             {emailSent ? (
-              <div className="rounded-md bg-green-50 p-4">
+              <div className="rounded-md bg-green-50 p-6 border border-green-100 shadow-sm">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-green-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <ShieldCheckIcon className="h-6 w-6 text-green-500" />
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">Email sent</h3>
+                    <h3 className="text-lg font-medium text-green-800">Email sent</h3>
                     <div className="mt-2 text-sm text-green-700">
                       <p>
                         Check your email for a link to reset your password. If it doesn't appear within a
@@ -79,10 +69,12 @@ const ResetPassword = () => {
                     <div className="mt-4">
                       <Link
                         to="/login"
-                        className="text-sm font-medium text-green-600 hover:text-green-500"
+                        className="inline-flex items-center text-sm font-medium text-green-600 hover:text-green-500 transition-colors"
                       >
                         Return to sign in
-                        <span aria-hidden="true"> &rarr;</span>
+                        <svg className="ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
                       </Link>
                     </div>
                   </div>
@@ -116,7 +108,7 @@ const ResetPassword = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                   >
                     {loading ? 'Sending...' : 'Send reset link'}
                   </button>
@@ -134,13 +126,13 @@ const ResetPassword = () => {
           src="https://images.unsplash.com/photo-1505238680356-667803448bb6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80"
           alt="Learning together"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-blue-600 to-blue-400 mix-blend-multiply opacity-50" />
-        <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-8">
+        <div className="absolute inset-0 bg-gradient-to-t from-blue-900/80 to-blue-700/40 mix-blend-multiply" />
+        <div className="absolute inset-0 flex flex-col justify-center items-start px-12">
           <h1 className="text-4xl font-bold text-white mb-4">
             Reset Your Password
           </h1>
-          <p className="text-xl text-white opacity-90">
-            Don't worry, we'll help you get back to your account.
+          <p className="text-xl text-white opacity-90 max-w-md">
+            Don't worry, we'll help you get back to your account so you can continue learning.
           </p>
         </div>
       </div>
