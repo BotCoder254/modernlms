@@ -7,6 +7,22 @@ import { AcademicCapIcon, ClockIcon, UserGroupIcon, LightBulbIcon, ArrowRightIco
 
 const Landing = () => {
   const [featuredCourses, setFeaturedCourses] = useState([]);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 10) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchFeaturedCourses = async () => {
@@ -88,6 +104,45 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen">
+      {/* Header Navigation */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled ? 'bg-white shadow-md' : 'bg-transparent'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <Link to="/" className="flex items-center">
+                <span className={`text-2xl font-bold ${isScrolled ? 'bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent' : 'text-white'}`}>
+                  ModernLMS
+                </span>
+              </Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Link 
+                to="/login" 
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isScrolled 
+                    ? 'text-gray-700 hover:text-blue-600' 
+                    : 'text-white hover:bg-white/10'
+                }`}
+              >
+                Sign In
+              </Link>
+              <Link 
+                to="/signup" 
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isScrolled 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-white text-blue-900 hover:bg-gray-100'
+                }`}
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">

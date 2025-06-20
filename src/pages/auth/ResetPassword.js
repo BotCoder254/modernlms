@@ -42,6 +42,12 @@ const ResetPassword = () => {
               <ArrowLeftIcon className="w-5 h-5 mr-2" />
               Back to Sign in
             </Link>
+            <Link
+              to="/"
+              className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Back to Home
+            </Link>
           </div>
           
           <div>
@@ -66,12 +72,21 @@ const ResetPassword = () => {
                         few minutes, check your spam folder.
                       </p>
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-4 flex space-x-4">
                       <Link
                         to="/login"
                         className="inline-flex items-center text-sm font-medium text-green-600 hover:text-green-500 transition-colors"
                       >
                         Return to sign in
+                        <svg className="ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </Link>
+                      <Link
+                        to="/"
+                        className="inline-flex items-center text-sm font-medium text-green-600 hover:text-green-500 transition-colors"
+                      >
+                        Go to home
                         <svg className="ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                         </svg>
@@ -126,7 +141,7 @@ const ResetPassword = () => {
           src="https://images.unsplash.com/photo-1505238680356-667803448bb6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2340&q=80"
           alt="Learning together"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-blue-900/80 to-blue-700/40 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-indigo-900/70 to-blue-700/60 mix-blend-multiply" />
         <div className="absolute inset-0 flex flex-col justify-center items-start px-12">
           <h1 className="text-4xl font-bold text-white mb-4">
             Reset Your Password

@@ -44,6 +44,15 @@ const Login = () => {
       {/* Left side - Form */}
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
+          <div className="flex items-center justify-start mb-6">
+            <Link
+              to="/"
+              className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeftIcon className="w-5 h-5 mr-2" />
+              Back to Home
+            </Link>
+          </div>
           <div>
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
               Sign in to your account
@@ -171,7 +180,7 @@ const Login = () => {
           src="https://images.unsplash.com/photo-1505904267569-f02eaeb45a4c?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1908&q=80"
           alt=""
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-blue-900/80 to-blue-700/40 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-indigo-900/70 to-blue-700/60 mix-blend-multiply" />
         <div className="absolute inset-0 flex flex-col justify-center items-start px-12">
           <h1 className="text-4xl font-bold text-white mb-4">
             Welcome Back
