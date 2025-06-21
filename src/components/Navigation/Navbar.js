@@ -19,6 +19,7 @@ import {
   UserIcon,
   ChatBubbleLeftRightIcon,
   DocumentCheckIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Learning Paths', path: '/dashboard/learning-paths', icon: AcademicCapIcon, roles: ['student'] },
   { name: 'Analytics', path: '/dashboard/analytics', icon: ChartBarIcon, roles: ['instructor'] },
   { name: 'Students', path: '/dashboard/students', icon: UserGroupIcon, roles: ['instructor'] },
+  { name: 'Recycled Courses', path: '/dashboard/recycled-courses', icon: TrashIcon, roles: ['instructor'] },
   { name: 'Community', path: '/community', icon: ChatBubbleLeftRightIcon, roles: ['student', 'instructor'] },
   { name: 'Certificates', path: '/achievements/certificates', icon: DocumentCheckIcon, roles: ['student'] },
   { name: 'Profile', path: '/profile', icon: UserIcon, roles: ['student', 'instructor'] },

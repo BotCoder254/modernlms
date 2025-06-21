@@ -23,6 +23,7 @@ import Profile from './pages/Profile';
 import Certificates from './pages/achievements/Certificates';
 import Community from './pages/community/Community';
 import Discussion from './pages/community/Discussion';
+import RecycledCourses from './pages/dashboard/RecycledCourses';
 
 // Components
 import Navbar from './components/Navigation/Navbar';
@@ -116,6 +117,15 @@ const App = () => {
                   <ProtectedRoute roles={['instructor']}>
                     <Navbar />
                     <Analytics />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/recycled-courses"
+                element={
+                  <ProtectedRoute roles={['instructor']}>
+                    <Navbar />
+                    <RecycledCourses />
                   </ProtectedRoute>
                 }
               />

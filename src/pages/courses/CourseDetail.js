@@ -44,6 +44,8 @@ import {
   ChevronRightIcon,
   BookmarkIcon as BookmarkOutlineIcon,
   InformationCircleIcon,
+  ExclamationCircleIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolidIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 import PaymentForm from '../../components/PaymentForm';
@@ -684,6 +686,18 @@ const CourseDetail = () => {
   const canAccessLesson = (lesson) => {
     if (!lesson) return false;
     if (user?.role === 'instructor' && course?.instructorId === user?.uid) return true;
+    
+    // Check if course is in recycle bin
+    if (course?.isDeleted) return false;
+    
+    // Check if course is accessible
+    if (course?.isAccessible === false) return false;
+    
+    // Check for time-limited access expiration
+    if (course?.accessibleUntil && new Date(course.accessibleUntil) < new Date()) {
+      return false;
+    }
+    
     if (isEnrolled) return true;
     return lesson.previewEnabled;
   };
@@ -692,10 +706,21 @@ const CourseDetail = () => {
   useEffect(() => {
     const trackCourseView = async () => {
       if (user?.uid && courseId) {
-        await trackCourseEngagement(courseId, 'view', {
-          userId: user.uid,
-          timestamp: new Date()
-        });
+        try {
+          // Record engagement
+          await trackCourseEngagement(courseId, 'view', {
+            userId: user.uid,
+            timestamp: new Date()
+          });
+          
+          // Increment view count in the course document
+          const courseRef = doc(db, 'courses', courseId);
+          await updateDoc(courseRef, {
+            viewCount: increment(1)
+          });
+        } catch (error) {
+          console.error('Error tracking course view:', error);
+        }
       }
     };
     trackCourseView();
@@ -955,6 +980,21 @@ const CourseDetail = () => {
                   Edit Course
                 </Link>
               )}
+            </div>
+            
+            <div className="mt-4 flex items-center space-x-6 text-sm text-gray-600">
+              <div className="flex items-center">
+                <EyeIcon className="h-5 w-5 text-gray-400 mr-1" />
+                {course.viewCount || 0} views
+              </div>
+              <div className="flex items-center">
+                <UserGroupIcon className="h-5 w-5 text-gray-400 mr-1" />
+                {course.enrollmentCount || 0} students enrolled
+              </div>
+              <div className="flex items-center">
+                <StarIcon className="h-5 w-5 text-yellow-400 mr-1" />
+                {course.rating || 0} ({course.reviewCount || 0} {course.reviewCount === 1 ? 'review' : 'reviews'})
+              </div>
             </div>
             
             <div className="border-t border-b border-gray-100 py-6 my-4">
@@ -1677,6 +1717,63 @@ const CourseDetail = () => {
             <p className="text-gray-500 text-center py-6">No reviews yet</p>
           )}
         </div>
+
+        {/* Recycled Course Notice */}
+        {course?.isDeleted && (
+          <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <TrashIcon className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  This course is in the recycle bin
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>This course has been moved to the recycle bin and is temporarily inactive. It will be permanently deleted after 7 days unless restored by the instructor.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Course Inaccessible Notice */}
+        {course?.isAccessible === false && (
+          <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  This course is currently not accessible
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{course.accessReason || "This course is temporarily unavailable."}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Time-Limited Course Notice */}
+        {course?.accessibleUntil && course?.isAccessible !== false && (
+          <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <ClockIcon className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Time-limited access
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>This course is available until {new Date(course.accessibleUntil).toLocaleDateString()}.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

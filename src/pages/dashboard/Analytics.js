@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -14,15 +14,35 @@ import {
   PresentationChartLineIcon,
   AcademicCapIcon
 } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend 
+  ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend, AreaChart, Area 
 } from 'recharts';
 
 const Analytics = () => {
   const { user } = useAuth();
 
-  const { data: courseStats = [], isLoading } = useQuery({
+  // Get engagement data
+  const { data: engagementData = [] } = useQuery({
+    queryKey: ['courseEngagement', user?.uid],
+    queryFn: async () => {
+      try {
+        const engagementRef = collection(db, 'course_engagement');
+        const snapshot = await getDocs(engagementRef);
+        return snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error) {
+        console.error('Error fetching engagement data:', error);
+        return [];
+      }
+    },
+    enabled: !!user?.uid
+  });
+
+  const { data: courseData = [], isLoading } = useQuery({
     queryKey: ['courseStats', user?.uid],
     queryFn: async () => {
       const coursesRef = collection(db, 'courses');
@@ -111,7 +131,7 @@ const Analytics = () => {
     enabled: !!user,
   });
 
-  const totalStats = courseStats.reduce(
+  const totalStats = courseData.reduce(
     (acc, course) => {
       acc.totalStudents += course.actualEnrollments;
       acc.totalRevenue += course.totalRevenue;
@@ -122,11 +142,11 @@ const Analytics = () => {
     { totalStudents: 0, totalRevenue: 0, totalReviews: 0, averageRating: 0 }
   );
 
-  totalStats.averageRating = totalStats.averageRating / (courseStats.length || 1);
+  totalStats.averageRating = totalStats.averageRating / (courseData.length || 1);
   
   // Prepare combined monthly data for chart
   const combinedMonthlyData = {};
-  courseStats.forEach(course => {
+  courseData.forEach(course => {
     (course.monthlyData || []).forEach(item => {
       if (!combinedMonthlyData[item.month]) {
         combinedMonthlyData[item.month] = { 
@@ -150,7 +170,7 @@ const Analytics = () => {
   
   // Combine category data
   const combinedCategoryData = {};
-  courseStats.forEach(course => {
+  courseData.forEach(course => {
     (course.categoryData || []).forEach(item => {
       if (!combinedCategoryData[item.name]) {
         combinedCategoryData[item.name] = 0;
@@ -164,7 +184,7 @@ const Analytics = () => {
     
   // Combine level data
   const combinedLevelData = {};
-  courseStats.forEach(course => {
+  courseData.forEach(course => {
     (course.levelData || []).forEach(item => {
       if (!combinedLevelData[item.name]) {
         combinedLevelData[item.name] = 0;
@@ -178,6 +198,100 @@ const Analytics = () => {
   
   // Chart colors
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
+  // Process data for charts
+  const processCourseStatistics = useCallback(() => {
+    if (!courseData.length) return { viewsData: [], enrollmentsData: [], coursePerformance: [] };
+    
+    const now = new Date();
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - (29 - i));
+      return date.toISOString().split('T')[0];
+    });
+    
+    // Initialize data structures
+    const viewsByDay = {};
+    const enrollmentsByDay = {};
+    last30Days.forEach(day => {
+      viewsByDay[day] = 0;
+      enrollmentsByDay[day] = 0;
+    });
+    
+    // Process course data
+    const coursePerformance = courseData.map(course => {
+      // Calculate views for last 30 days
+      const courseViews = engagementData
+        .filter(item => 
+          item.courseId === course.id && 
+          item.action === 'view' && 
+          item.timestamp &&
+          (now - new Date(item.timestamp.seconds * 1000)) / (1000 * 60 * 60 * 24) <= 30
+        );
+      
+      // Calculate enrollments for last 30 days
+      const courseEnrollments = engagementData
+        .filter(item => 
+          item.courseId === course.id && 
+          item.action === 'enroll' && 
+          item.timestamp &&
+          (now - new Date(item.timestamp.seconds * 1000)) / (1000 * 60 * 60 * 24) <= 30
+        );
+      
+      // Group by date for chart data
+      courseViews.forEach(view => {
+        if (view.timestamp) {
+          const date = new Date(view.timestamp.seconds * 1000).toISOString().split('T')[0];
+          if (viewsByDay[date] !== undefined) {
+            viewsByDay[date]++;
+          }
+        }
+      });
+      
+      courseEnrollments.forEach(enrollment => {
+        if (enrollment.timestamp) {
+          const date = new Date(enrollment.timestamp.seconds * 1000).toISOString().split('T')[0];
+          if (enrollmentsByDay[date] !== undefined) {
+            enrollmentsByDay[date]++;
+          }
+        }
+      });
+      
+      return {
+        id: course.id,
+        title: course.title,
+        totalViews: courseViews.length,
+        totalEnrollments: course.actualEnrollments || 0,
+        rating: course.rating || 0,
+        reviewCount: course.reviewCount || 0,
+        completionRate: course.completionRate || 0,
+        viewsLast30Days: courseViews.length,
+        enrollmentsLast30Days: courseEnrollments.length,
+        conversionRate: courseViews.length > 0 
+          ? Math.round((courseEnrollments.length / courseViews.length) * 100) 
+          : 0
+      };
+    });
+    
+    // Format chart data
+    const viewsData = last30Days.map(date => ({
+      date,
+      views: viewsByDay[date] || 0
+    }));
+    
+    const enrollmentsData = last30Days.map(date => ({
+      date,
+      enrollments: enrollmentsByDay[date] || 0
+    }));
+    
+    return {
+      viewsData,
+      enrollmentsData,
+      coursePerformance
+    };
+  }, [courseData, engagementData]);
+
+  const { viewsData, enrollmentsData, coursePerformance } = processCourseStatistics();
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -440,7 +554,7 @@ const Analytics = () => {
                     </tr>
                   ))
                 ) : (
-                  courseStats.map((course) => (
+                  courseData.map((course) => (
                     <tr key={course.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
@@ -488,6 +602,126 @@ const Analytics = () => {
             </table>
           </div>
         </motion.div>
+
+        {/* Course Performance Section */}
+        <div className="mt-8">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Course Performance</h2>
+          
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Views</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollments</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views (30d)</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollments (30d)</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversion Rate</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {coursePerformance.map((course) => (
+                    <tr key={course.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{course.title}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{course.totalViews}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{course.totalEnrollments}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{course.viewsLast30Days}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{course.enrollmentsLast30Days}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{course.conversionRate}%</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <StarIcon className="h-4 w-4 text-yellow-400 mr-1" />
+                          <span className="text-sm text-gray-900">
+                            {course.rating.toFixed(1)} ({course.reviewCount})
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Engagement Charts */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-base font-medium text-gray-900 mb-4">Course Views (Last 30 Days)</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={viewsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="viewsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(date) => {
+                      const d = new Date(date);
+                      return `${d.getMonth() + 1}/${d.getDate()}`;
+                    }} 
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    formatter={(value) => [`${value} views`, 'Views']} 
+                    labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="views" 
+                    stroke="#3B82F6" 
+                    fillOpacity={1} 
+                    fill="url(#viewsGradient)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-base font-medium text-gray-900 mb-4">New Enrollments (Last 30 Days)</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={enrollmentsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(date) => {
+                      const d = new Date(date);
+                      return `${d.getMonth() + 1}/${d.getDate()}`;
+                    }}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    formatter={(value) => [`${value} enrollments`, 'Enrollments']} 
+                    labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                  />
+                  <Bar dataKey="enrollments" fill="#10B981" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import {
   UserGroupIcon,
   StarIcon,
   PencilIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 const MyCourses = () => {
@@ -235,12 +236,21 @@ const MyCourses = () => {
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">My Created Courses</h2>
-              <Link
-                to="/courses/create"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Create New Course
-              </Link>
+              <div className="flex items-center space-x-3">
+                <Link
+                  to="/dashboard/recycled-courses"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <TrashIcon className="h-4 w-4 mr-2" />
+                  Recycled Courses
+                </Link>
+                <Link
+                  to="/courses/create"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Create New Course
+                </Link>
+              </div>
             </div>
             {isLoadingCreated ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
