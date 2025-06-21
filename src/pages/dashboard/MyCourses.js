@@ -10,6 +10,7 @@ import {
   BookOpenIcon,
   UserGroupIcon,
   StarIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 
 const MyCourses = () => {
@@ -256,19 +257,24 @@ const MyCourses = () => {
             ) : createdCourses.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {createdCourses.map((course) => (
-                  <Link
+                  <div
                     key={course.id}
-                    to={`/courses/${course.id}`}
                     className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
                   >
-                    <img
-                      src={course.thumbnail}
-                      alt={course.title}
-                      className="w-full h-48 object-cover rounded-t-lg"
-                    />
+                    <Link
+                      to={`/courses/${course.id}`}
+                    >
+                      <img
+                        src={course.thumbnail}
+                        alt={course.title}
+                        className="w-full h-48 object-cover rounded-t-lg"
+                      />
+                    </Link>
                     <div className="p-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{course.title}</h3>
-                      <div className="flex items-center justify-between text-sm text-gray-600">
+                      <Link to={`/courses/${course.id}`}>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{course.title}</h3>
+                      </Link>
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
                         <div className="flex items-center">
                           <UserGroupIcon className="h-5 w-5 mr-1" />
                           {course.enrollmentCount} students
@@ -278,8 +284,20 @@ const MyCourses = () => {
                           {getAverageRating(course.id)}
                         </div>
                       </div>
+                      <div className="mt-4 flex justify-between items-center">
+                        <span className="text-sm text-gray-500">
+                          Last updated: {new Date(course.updatedAt?.seconds * 1000).toLocaleDateString()}
+                        </span>
+                        <Link
+                          to={`/courses/edit/${course.id}`}
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                        >
+                          <PencilIcon className="h-4 w-4 mr-1" />
+                          Edit
+                        </Link>
+                      </div>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             ) : (

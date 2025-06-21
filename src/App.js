@@ -18,6 +18,7 @@ import LearningPaths from './pages/dashboard/LearningPaths';
 import CourseList from './pages/courses/CourseList';
 import CourseDetail from './pages/courses/CourseDetail';
 import CreateCourse from './pages/courses/CreateCourse';
+import EditCourse from './pages/courses/EditCourse';
 import Profile from './pages/Profile';
 import Certificates from './pages/achievements/Certificates';
 import Community from './pages/community/Community';
@@ -162,6 +163,15 @@ const App = () => {
                   <ProtectedRoute roles={['instructor']}>
                     <Navbar />
                     <CreateCourse />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/courses/edit/:courseId"
+                element={
+                  <ProtectedRoute roles={['instructor']}>
+                    <Navbar />
+                    <EditCourse />
                   </ProtectedRoute>
                 }
               />

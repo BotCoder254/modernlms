@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import ReactPlayer from 'react-player';
@@ -47,6 +47,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid, BookmarkIcon as BookmarkSolidIcon, UserGroupIcon } from '@heroicons/react/24/solid';
 import PaymentForm from '../../components/PaymentForm';
+import VersionHistory from '../../components/courses/VersionHistory';
 import { trackUserEngagement, trackLessonProgress, trackCourseEngagement } from '../../utils/analytics';
 
 const CourseDetail = () => {
@@ -934,14 +935,26 @@ const CourseDetail = () => {
           </div>
           
           <div className="p-6">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-semibold text-lg">
-                {course.instructorName ? course.instructorName.charAt(0).toUpperCase() : 'I'}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-4">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center text-white font-semibold text-lg">
+                  {course.instructorName ? course.instructorName.charAt(0).toUpperCase() : 'I'}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Instructor</p>
+                  <p className="text-lg font-medium">{course.instructorName}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Instructor</p>
-                <p className="text-lg font-medium">{course.instructorName}</p>
-              </div>
+              {/* Add Edit Course button for instructors */}
+              {user?.uid === course?.instructorId && (
+                <Link
+                  to={`/courses/edit/${courseId}`}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  <PencilIcon className="h-4 w-4 mr-1" />
+                  Edit Course
+                </Link>
+              )}
             </div>
             
             <div className="border-t border-b border-gray-100 py-6 my-4">
@@ -1006,38 +1019,13 @@ const CourseDetail = () => {
           </div>
         </div>
 
-        {isEnrolled && courseVersions && courseVersions.length > 1 && (
+        {/* Course Version History - Now using the VersionHistory component */}
+        {courseVersions && courseVersions.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Course Updates</h3>
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <InformationCircleIcon className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="ml-3">
-                  <h4 className="text-sm font-medium text-blue-800">
-                    This course was updated on {new Date(courseVersions[0].updatedAt).toLocaleDateString()}
-                  </h4>
-                  <p className="mt-1 text-sm text-blue-700">
-                    {courseVersions[0].changelog || 'Course content has been updated.'}
-                  </p>
-                  <details className="mt-2">
-                    <summary className="text-xs text-blue-800 cursor-pointer hover:underline">
-                      Version history
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      {courseVersions.map((version, index) => (
-                        <div key={`version-${index}`} className="text-xs">
-                          <span className="font-medium">v{version.version}</span> - 
-                          {new Date(version.updatedAt).toLocaleDateString()} - 
-                          {version.changelog}
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                </div>
-              </div>
-            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {isEnrolled ? "Course Updates" : "Version History"}
+            </h3>
+            <VersionHistory versions={courseVersions} isEnrolled={isEnrolled} />
           </div>
         )}
 
