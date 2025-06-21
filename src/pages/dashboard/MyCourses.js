@@ -41,6 +41,12 @@ const MyCourses = () => {
               console.error('Course not found:', enrollDoc.data().courseId);
               return null;
             }
+            
+            // Skip deleted courses
+            const courseData = courseSnap.data();
+            if (courseData.isDeleted === true) {
+              return null;
+            }
 
             // Fetch reviews for this course - modified to avoid index error
             const reviewsRef = collection(db, 'reviews');
@@ -64,7 +70,7 @@ const MyCourses = () => {
 
             return {
               id: courseSnap.id,
-              ...courseSnap.data(),
+              ...courseData,
               progress: enrollDoc.data().progress || {},
               lastAccessed: enrollDoc.data().lastAccessed?.toDate() || new Date(),
               reviews: reviews
@@ -72,7 +78,7 @@ const MyCourses = () => {
           })
         );
 
-        // Filter out any null values from courses that weren't found
+        // Filter out any null values from courses that weren't found or are deleted
         const validCourses = courses.filter(Boolean);
         setEnrolledCourses(validCourses);
         setIsLoadingEnrolled(false);
@@ -94,11 +100,20 @@ const MyCourses = () => {
 
     setIsLoadingCreated(true);
     const coursesRef = collection(db, 'courses');
-    const q = query(coursesRef, where('instructorId', '==', user.uid));
+    const q = query(
+      coursesRef, 
+      where('instructorId', '==', user.uid)
+    );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
         const courses = await Promise.all(snapshot.docs.map(async (courseDoc) => {
+          // Skip deleted courses
+          const courseData = courseDoc.data();
+          if (courseData.isDeleted === true) {
+            return null;
+          }
+          
           // Fetch reviews for this course - modified to avoid index error
           const reviewsRef = collection(db, 'reviews');
           const reviewsQuery = query(
@@ -121,13 +136,15 @@ const MyCourses = () => {
 
           return {
             id: courseDoc.id,
-            ...courseDoc.data(),
-            lastUpdated: courseDoc.data().lastUpdated?.toDate() || new Date(),
+            ...courseData,
+            lastUpdated: courseData.lastUpdated?.toDate() || new Date(),
             reviews: reviews
           };
         }));
 
-        setCreatedCourses(courses);
+        // Filter out null values (deleted courses)
+        const activeCourses = courses.filter(course => course !== null);
+        setCreatedCourses(activeCourses);
         setIsLoadingCreated(false);
       } catch (error) {
         console.error('Error fetching created courses:', error);

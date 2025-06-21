@@ -508,8 +508,12 @@ const CreateCourse = () => {
         isFree: courseData.isFree,
         price: courseData.isFree ? 0 : Number(courseData.price),
         hasDiscount: !courseData.isFree && courseData.hasDiscount,
-        discountPrice: courseData.isFree ? 0 : (courseData.hasDiscount ? Number(courseData.discountPrice) : null),
-        discountEndDate: courseData.isFree ? null : (courseData.hasDiscount ? new Date(courseData.discountEndDate) : null),
+        discountPrice: courseData.isFree 
+          ? 0 
+          : (courseData.hasDiscount && courseData.discountPrice ? Number(courseData.discountPrice) : null),
+        discountEndDate: courseData.isFree 
+          ? null 
+          : (courseData.hasDiscount && courseData.discountEndDate ? new Date(courseData.discountEndDate) : null),
         thumbnail: thumbnailUrl,
         lessons: lessonsWithUrls,
         instructorId: user.uid,
@@ -591,6 +595,7 @@ const CreateCourse = () => {
               value={courseData.title}
               onChange={(e) => setCourseData((prev) => ({ ...prev, title: e.target.value }))}
               className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter course title"
               required
             />
           </div>
@@ -606,8 +611,51 @@ const CreateCourse = () => {
               onChange={(e) => setCourseData((prev) => ({ ...prev, description: e.target.value }))}
               rows={6}
               className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Provide a detailed description of your course"
               required
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                Course Category
+              </label>
+              <select
+                id="category"
+                name="category"
+                value={courseData.category}
+                onChange={(e) => setCourseData((prev) => ({ ...prev, category: e.target.value }))}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="" disabled>Select a category</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-2">
+                Course Level
+              </label>
+              <select
+                id="level"
+                name="level"
+                value={courseData.level}
+                onChange={(e) => setCourseData((prev) => ({ ...prev, level: e.target.value }))}
+                className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                {levels.map((level) => (
+                  <option key={level} value={level.toLowerCase()}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -642,6 +690,7 @@ const CreateCourse = () => {
                 step="0.01"
                 className={`block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${courseData.isFree ? 'bg-gray-100' : ''}`}
                 disabled={courseData.isFree}
+                placeholder="Enter regular price"
                 required
               />
             </div>
@@ -672,6 +721,7 @@ const CreateCourse = () => {
                     step="0.01"
                     placeholder="Discount Price ($)"
                     className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 mb-2"
+                    required={courseData.hasDiscount}
                   />
                   <input
                     type="date"
@@ -699,6 +749,7 @@ const CreateCourse = () => {
               onChange={(e) => setCourseData({ ...courseData, duration: e.target.value })}
               min="1"
               className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Total course duration in minutes"
               required
             />
           </div>
@@ -776,6 +827,7 @@ const CreateCourse = () => {
                         value={lesson.title}
                         onChange={(e) => handleLessonChange(index, 'title', e.target.value)}
                         className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter lesson title"
                         required
                       />
                     </div>
@@ -788,6 +840,7 @@ const CreateCourse = () => {
                         onChange={(e) => handleLessonChange(index, 'description', e.target.value)}
                         rows={3}
                         className="block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Describe what this lesson covers"
                         required
                       />
                     </div>
